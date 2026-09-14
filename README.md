@@ -2,9 +2,9 @@
 
 A creative social space built with **Next.js App Router, React, TypeScript, Tailwind CSS, and shadcn/ui**. The frontend uses the original Go REST API and JWT authentication, with Elasticsearch behind the existing search endpoint. No Go or Elasticsearch changes are required.
 
-![NetworkAI desktop preview](docs/screenshots/discover-desktop.png)
+![NetworkAI desktop preview](docs/screenshots/discover-desktop.jpg)
 
-[View the mobile preview](docs/screenshots/discover-mobile.png).
+[View the mobile preview](docs/screenshots/discover-mobile.jpg).
 
 ## Run locally
 
@@ -27,6 +27,10 @@ Configure these variables in `.env.local` or your frontend hosting environment:
 
 The old `REACT_APP_OPENAI_KEY` is deliberately no longer used. Move that credential to `OPENAI_API_KEY`; never add a `NEXT_PUBLIC_` prefix. No OpenAI secret is bundled into the client.
 
+## Interface approach
+
+The layout follows the focused search and category navigation of [Unsplash](https://unsplash.com/), the straightforward image grid of [Dribbble](https://dribbble.com/shots/popular), and the restrained information architecture of [Are.na](https://www.are.na/explore). A single header, compact filters, and consistent post cards keep content close to the top. Large promotional sections, a wide sidebar, redundant calls to action, decorative badges, and image collages are omitted. Account and creation screens use the same plain form styling.
+
 ## Product flows
 
 - **Discover:** recent community images and videos, caption or exact-creator search, topic shortcuts, loading/error/empty states, accessible media detail dialogs, and incremental display of loaded results.
@@ -36,7 +40,7 @@ The old `REACT_APP_OPENAI_KEY` is deliberately no longer used. Move that credent
 - **Accounts:** registration, login, logout, persisted JWTs, expiry handling, legacy token migration, rejected-session cleanup, and cross-tab session synchronization.
 - **Saved posts:** browser-local, account-scoped bookmarks. They do not claim server persistence or cross-device synchronization.
 - **Drafts:** captions and AI prompts persist per account in the current browser tab; media remains in memory until reload. Drafts are cleared after successful publication.
-- **Responsive navigation:** persistent desktop sidebar, mobile bottom navigation, labeled controls, keyboard focus, reduced-motion support, and a skip link.
+- **Responsive navigation:** one desktop header with navigation, search, and Create; mobile search and bottom navigation, labeled controls, keyboard focus, reduced-motion support, and a skip link.
 
 **Published-post editing is intentionally omitted:** the existing client has no update API contract, and the requested scope is to use only existing endpoints. Draft text and generated images remain editable before publishing. Users can delete their own published posts after confirmation.
 

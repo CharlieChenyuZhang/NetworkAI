@@ -30,7 +30,7 @@ async function mockBackend(page: Page) {
     deletedIds: [] as string[],
     signIns: [] as Record<string, string>[],
     registrations: [] as Record<string, string>[],
-    searchFailures: 0,
+    searchUnavailable: false,
     unauthorized: false,
     jwt: token(),
   };
@@ -55,8 +55,7 @@ async function mockBackend(page: Page) {
     if (url.pathname === "/search") {
       state.searches.push(url);
       if (state.unauthorized) return json(route, { error: "Unauthorized" }, 401);
-      if (state.searchFailures > 0) {
-        state.searchFailures -= 1;
+      if (state.searchUnavailable) {
         return json(route, { error: "Temporarily unavailable" }, 503);
       }
       const user = url.searchParams.get("user");
@@ -85,10 +84,15 @@ const visibleLink = (page: Page, name: string) => page.getByRole("link", { name,
 const createButton = (page: Page) => page.getByRole("button", { name: "Create a post", exact: true }).filter({ visible: true }).first();
 const articleFor = (page: Page, caption: string) => page.getByRole("article").filter({ hasText: caption });
 
-test("guest preview supports topics, search, persistent bookmarks, and responsive navigation", async ({ page }, testInfo) => {
+test("guest preview supports filters, search, persistent bookmarks, and responsive navigation", async ({ page }, testInfo) => {
   const backend = await mockBackend(page);
   await page.goto("/");
   await expect(page.getByText("A curated preview. Sign in to explore community posts.")).toBeVisible();
+  await expect(page.getByRole("article")).toHaveCount(6);
+  await page.getByRole("combobox", { name: "Media type" }).selectOption("video");
+  await expect(page.getByRole("heading", { name: "No matching posts" })).toBeVisible();
+  await expect(page.getByRole("article")).toHaveCount(0);
+  await page.getByRole("combobox", { name: "Media type" }).selectOption("all");
   await expect(page.getByRole("article")).toHaveCount(6);
   await page.getByRole("button", { name: "Nature", exact: true }).click();
   await expect(page.getByRole("article")).toHaveCount(3);
@@ -99,7 +103,7 @@ test("guest preview supports topics, search, persistent bookmarks, and responsiv
   await page.getByRole("button", { name: "Save post: Somewhere between the mountains and the sky.", exact: true }).click();
   await page.locator('a[href="/saved"]:visible').first().click();
   await expect(page).toHaveURL(/\/saved$/);
-  await expect(page.getByRole("heading", { name: "Good ideas are worth keeping." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Saved posts", exact: true })).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(1);
   await page.reload();
   await expect(page.getByRole("article")).toHaveCount(1);
@@ -108,14 +112,14 @@ test("guest preview supports topics, search, persistent bookmarks, and responsiv
   await expect(page.getByRole("article")).toHaveCount(6);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   if (testInfo.project.name === "mobile") await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath(`discover-${testInfo.project.name}.png`), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath(`discover-${testInfo.project.name}.jpg`), type: "jpeg", quality: 85 });
   expect(backend.searches).toHaveLength(0);
 });
 
 test("protected personal content returns to My posts after sign-in and searches captions locally", async ({ page }) => {
   const backend = await mockBackend(page);
   await page.goto("/my-posts");
-  await expect(page.getByRole("heading", { name: "A space of your own." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in to view your posts" })).toBeVisible();
   expect(backend.searches).toHaveLength(0);
   await page.getByRole("link", { name: "Sign in to continue" }).click();
   await page.getByLabel("Username", { exact: true }).fill("charlie");
@@ -201,7 +205,7 @@ test("expired legacy tokens are cleared before protected requests are sent", asy
   await seedSession(page, token("charlie", Math.floor(Date.now() / 1000) - 60));
   const backend = await mockBackend(page);
   await page.goto("/my-posts");
-  await expect(page.getByRole("heading", { name: "A space of your own." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in to view your posts" })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("token"))).toBeNull();
   expect(backend.searches).toHaveLength(0);
 });
@@ -211,7 +215,7 @@ test("a rejected JWT ends the session and restores the private-view sign-in gate
   const backend = await mockBackend(page);
   backend.unauthorized = true;
   await page.goto("/my-posts");
-  await expect(page.getByRole("heading", { name: "A space of your own." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in to view your posts" })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("token"))).toBeNull();
   expect(backend.searches.length).toBeGreaterThan(0);
 });
@@ -219,13 +223,18 @@ test("a rejected JWT ends the session and restores the private-view sign-in gate
 test("a community service failure presents a retry that recovers the feed", async ({ page }) => {
   await seedSession(page);
   const backend = await mockBackend(page);
-  backend.searchFailures = 1;
+  // Keep the outage active across development effect remounts and aborted requests.
+  backend.searchUnavailable = true;
   await page.goto("/");
   await expect(page.getByRole("main").getByRole("alert")).toContainText("We couldn't load the community.");
+  await expect(page.getByRole("article")).toHaveCount(0);
+  const requestsBeforeRetry = backend.searches.length;
+  expect(requestsBeforeRetry).toBeGreaterThan(0);
+  backend.searchUnavailable = false;
   await page.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(page.getByRole("article")).toHaveCount(3);
   await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
-  expect(backend.searches).toHaveLength(2);
+  expect(backend.searches).toHaveLength(requestsBeforeRetry + 1);
 });
 
 test("AI generation, image refinement, and publishing share one reviewable draft", async ({ page }) => {
@@ -271,6 +280,6 @@ test("signing out in another browser tab closes protected content", async ({ pag
   await expect(otherTab.getByRole("button", { name: "Account menu" })).toBeVisible();
   await otherTab.getByRole("button", { name: "Account menu" }).click();
   await otherTab.getByRole("menuitem", { name: "Sign out" }).click();
-  await expect(page.getByRole("heading", { name: "A space of your own." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sign in to view your posts" })).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(0);
 });

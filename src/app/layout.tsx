@@ -4,11 +4,11 @@ import { Toaster } from "sonner";
 import "./globals.css";
 export const metadata: Metadata = {
   title: {
-    default: "NetworkAI | A little inspiration. Endless possibilities.",
+    default: "NetworkAI | Discover and share",
     template: "%s | NetworkAI",
   },
   description:
-    "Discover a new perspective. Share your world, explore a creative community, and bring your next idea to life with AI.",
+    "Discover community posts, share images and videos, and create with AI.",
 };
 export default function RootLayout({
   children,

@@ -14,30 +14,26 @@ import {
   ArrowDown,
   ArrowRight,
   Bookmark,
-  Check,
-  ChevronDown,
-  Compass,
   Copy,
-  Feather,
-  Grid2X2,
-  HelpCircle,
   ImageIcon,
-  Layers,
   Loader2,
   LogIn,
-  LogOut,
   Plus,
   RefreshCw,
   Search,
   Sparkles,
   Trash2,
-  WandSparkles,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Brand } from "./brand";
 import { useAuth } from "./auth-provider";
 import { PostComposer } from "./post-composer";
+import {
+  AppHeader,
+  MobileNavigation,
+  type AppView as View,
+} from "./app-header";
+import { PostCard, PostMedia } from "./post-card";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -46,23 +42,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
 import { Skeleton } from "./ui/skeleton";
 import { deletePost, searchPosts } from "@/lib/api";
 import { inspirationPosts, type InspirationPost } from "@/lib/inspiration";
 import { cn } from "@/lib/utils";
 
-type View = "discover" | "mine" | "saved" | "studio";
-const links = [
-  { href: "/", view: "discover", label: "Discover", icon: Compass },
-  { href: "/my-posts", view: "mine", label: "My posts", icon: Grid2X2 },
-  { href: "/saved", view: "saved", label: "Saved posts", icon: Bookmark },
-] as const;
 const topics = [
   "All inspiration",
   "Nature",
@@ -150,66 +134,6 @@ function useSaved(username?: string) {
   };
   return { posts, toggle };
 }
-function Avatar({ name, className }: { name: string; className?: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e9eede] text-[11px] font-semibold text-primary",
-        className,
-      )}
-    >
-      {name
-        .split(/[\s._-]/)
-        .map((word) => word[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()}
-    </span>
-  );
-}
-function PostMedia({
-  post,
-  className,
-}: {
-  post: InspirationPost;
-  className?: string;
-}) {
-  const [failed, setFailed] = useState(false);
-  if (failed)
-    return (
-      <div
-        className={cn(
-          "flex min-h-52 flex-col items-center justify-center gap-3 bg-muted text-muted-foreground",
-          className,
-        )}
-      >
-        <ImageIcon className="size-8" />
-        <span className="text-sm">This media is unavailable</span>
-      </div>
-    );
-  if (post.type === "video")
-    return (
-      <video
-        src={post.url}
-        className={className}
-        controls
-        preload="metadata"
-        aria-label={post.message || "Community video"}
-        onError={() => setFailed(true)}
-      />
-    );
-  return (
-    <img
-      src={post.url}
-      alt={post.message || `Image shared by ${post.user}`}
-      className={className}
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
 interface NetworkAppProps {
   view: View;
   initialQuery?: string;
@@ -247,7 +171,6 @@ function NetworkAppContent({ view, initialQuery = "" }: NetworkAppProps) {
     null,
   );
   const [deleting, setDeleting] = useState(false);
-  const [help, setHelp] = useState(false);
   const searchInput = useRef<HTMLInputElement>(null);
   const privateView = view === "mine" || view === "studio";
   const signedOut = ready && !token;
@@ -354,12 +277,22 @@ function NetworkAppContent({ view, initialQuery = "" }: NetworkAppProps) {
       setDeleting(false);
     }
   };
-  const pageTitle =
-    view === "mine"
-      ? "Your corner of the creative world."
-      : view === "saved"
-        ? "Good ideas are worth keeping."
-        : "Make room for your imagination.";
+  const title = {
+    discover: "Discover",
+    mine: "My posts",
+    saved: "Saved posts",
+    studio: "AI Studio",
+  }[view];
+  const description =
+    view === "discover"
+      ? signedOut
+        ? "A curated preview. Sign in to explore community posts."
+        : "Recent images and ideas from the community."
+      : view === "mine"
+        ? "Everything you have shared, in one place."
+        : view === "saved"
+          ? `${saved.posts.length} saved ${saved.posts.length === 1 ? "post" : "posts"}. Stored in this browser.`
+          : "Generate an image, refine it, and share a post.";
 
   return (
     <div className="min-h-dvh">
@@ -369,708 +302,276 @@ function NetworkAppContent({ view, initialQuery = "" }: NetworkAppProps) {
       >
         Skip to content
       </a>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[230px] flex-col overflow-y-auto border-r bg-[#fdfefa] px-5 py-8 lg:flex xl:w-[248px] xl:px-6">
-        <Link href="/" className="mb-14 pl-2" aria-label="NetworkAI home">
-          <Brand />
-        </Link>
-        <p className="mb-4 pl-4 text-[10px] font-semibold tracking-[0.18em] text-[#66705f]">
-          YOUR CREATIVE SPACE
-        </p>
-        <nav aria-label="Main navigation" className="space-y-1.5">
-          {links.map(({ href, view: itemView, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              aria-current={view === itemView ? "page" : undefined}
-              className={cn(
-                "flex h-11 items-center gap-3 rounded-lg px-4 text-[13px] transition-colors hover:bg-[#edf1e7]",
-                view === itemView
-                  ? "bg-[#e9efdf] font-semibold text-[#315238]"
-                  : "text-[#6f776d]",
-              )}
-            >
-              <Icon className="size-[18px]" strokeWidth={1.7} />
-              {label}
-              {itemView === "saved" && saved.posts.length > 0 && (
-                <span className="ml-auto text-[11px]">
-                  {saved.posts.length}
-                </span>
-              )}
-            </Link>
-          ))}
-        </nav>
-        <div className="my-6 border-t" />
-        <Link
-          href="/studio"
-          aria-current={view === "studio" ? "page" : undefined}
-          className={cn(
-            "flex h-11 items-center gap-3 rounded-lg px-4 text-[13px] hover:bg-[#edf1e7]",
-            view === "studio"
-              ? "bg-[#e9efdf] font-semibold text-primary"
-              : "text-[#6f776d]",
-          )}
-        >
-          <WandSparkles className="size-[18px]" strokeWidth={1.7} />
-          AI Studio
-          <span className="ml-auto rounded border border-[#dfe7cf] bg-[#f2f5e9] px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-primary">
-            CREATE
-          </span>
-        </Link>
-        <Button
-          className="mt-8 h-11 w-full gap-2 rounded-lg text-xs"
-          onClick={() => openComposer()}
-        >
-          <Plus className="size-4" /> Create a post
-        </Button>
-        <div className="mt-auto pt-12">
-          <div className="relative overflow-hidden rounded-xl bg-[#edf0e3] p-4">
-            <div className="mb-3 flex size-8 items-center justify-center rounded-lg bg-[#dfe7cc]">
-              <Sparkles className="size-4 text-primary" />
-            </div>
-            <p className="display-serif text-[19px] leading-6">
-              A spark is all it takes.
+      <AppHeader
+        view={view}
+        user={user}
+        query={query}
+        onQueryChange={setQuery}
+        scope={scope}
+        onScopeChange={setScope}
+        searchRef={searchInput}
+        onSearch={() => {
+          setSubmittedQuery(query.trim());
+          setTopic("All inspiration");
+          setVisibleCount(12);
+          if (view === "studio")
+            router.push(`/?q=${encodeURIComponent(query.trim())}`);
+        }}
+        onCreate={() => openComposer()}
+        onSignOut={() => {
+          signOut();
+          router.push("/");
+          toast.success("You are signed out");
+        }}
+      />
+      <main
+        id="main-content"
+        className="mx-auto max-w-[1400px] px-5 pb-28 pt-8 sm:px-8 lg:pb-12 lg:pt-10 xl:px-12"
+      >
+        <div className="mb-7 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-[28px] font-semibold tracking-[-0.8px] leading-tight sm:text-[32px]">
+              {title}
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {description}
             </p>
-            <p className="mt-2 text-[11px] leading-[1.8] text-[#66705f]">
-              Turn that what-if into something wonderful.
-            </p>
-            <Link
-              href="/studio"
-              className="mt-4 inline-flex items-center gap-2 text-[11px] font-semibold text-primary"
-            >
-              Explore AI Studio <ArrowRight className="size-3" />
-            </Link>
           </div>
-          <button
-            onClick={() => setHelp(true)}
-            className="mt-5 flex w-full items-center gap-3 px-3 py-2 text-xs text-muted-foreground hover:text-primary"
-          >
-            <HelpCircle className="size-4" /> A little help
-          </button>
-          <p className="px-3 pt-3 text-[11px] text-[#66705f]">
-            © {new Date().getFullYear()} NetworkAI
-          </p>
+          {needsApi && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Refresh posts"
+              onClick={() => setRefresh((r) => r + 1)}
+            >
+              <RefreshCw className={cn("size-4", pending && "animate-spin")} />
+            </Button>
+          )}
         </div>
-      </aside>
-
-      <div className="lg:ml-[230px] xl:ml-[248px]">
-        <header className="sticky top-0 z-20 flex h-[82px] items-center gap-3 sm:gap-5 border-b bg-[#fafbf8]/95 px-5 backdrop-blur sm:px-8 xl:px-11">
-          <Link
-            href="/"
-            className="shrink-0 lg:hidden"
-            aria-label="NetworkAI home"
-          >
-            <Brand compact />
-          </Link>
-          <span className="hidden shrink-0 text-[13px] font-semibold lg:block">
-            {view === "discover"
-              ? "Discover"
-              : view === "mine"
-                ? "My posts"
-                : view === "saved"
-                  ? "Saved posts"
-                  : "AI Studio"}
-          </span>
-          <form
-            role="search"
-            className="mx-auto flex h-10 min-w-0 w-full max-w-[410px] items-center gap-2 rounded-lg border border-[#e7e9e2] bg-white px-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSubmittedQuery(query.trim());
-              setTopic("All inspiration");
-              setVisibleCount(12);
-              if (view === "studio")
-                router.push(`/?q=${encodeURIComponent(query.trim())}`);
-            }}
-          >
-            <Search
-              className="size-4 shrink-0 text-[#66705f]"
-              aria-hidden="true"
-            />
-            <input
-              ref={searchInput}
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={
-                view === "mine"
-                  ? "Search your posts..."
-                  : "Find your next inspiration..."
-              }
-              aria-label={
-                view === "mine" ? "Search your posts" : "Search posts"
-              }
-              className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[#66705f] focus-visible:outline-none"
-            />
-            <button
-              type="submit"
-              aria-label="Search"
-              className="rounded px-1 py-1 text-muted-foreground hover:text-primary"
-            >
-              <ArrowRight className="size-3.5" />
-            </button>
-            <kbd className="hidden rounded border bg-[#fafbf7] px-1.5 py-0.5 text-[11px] text-[#66705f] sm:block">
-              ⌘ K
-            </kbd>
-          </form>
-          <div className="flex shrink-0 items-center gap-3">
-            {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    aria-label="Account menu"
-                    className="flex items-center gap-2 rounded-lg"
-                  >
-                    <Avatar name={user.username} />
-                    <span className="hidden max-w-24 truncate text-xs font-medium xl:block">
-                      {user.username}
-                    </span>
-                    <ChevronDown className="hidden size-3 text-muted-foreground sm:block" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link href="/my-posts">My posts</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      signOut();
-                      router.push("/");
-                      toast.success("You are signed out");
-                    }}
-                  >
-                    <LogOut className="size-4" /> Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="hidden text-xs font-medium text-[#6b7569] hover:text-primary sm:block"
-                >
-                  Log in
-                </Link>
-                <Button
-                  size="sm"
-                  asChild
-                  className="h-9 rounded-lg px-4 text-[11px]"
-                >
-                  <Link href="/register">
-                    <span className="sm:hidden">Join</span><span className="hidden sm:inline">Join community</span><ArrowRight className="hidden size-3.5 sm:block" />
-                  </Link>
-                </Button>
-              </>
-            )}
-          </div>
-        </header>
-
-        <main
-          id="main-content"
-          className="mx-auto max-w-[1660px] px-5 pb-28 pt-7 sm:px-8 sm:pt-8 lg:pb-12 xl:px-11"
-        >
-          {view === "discover" ? (
-            <section className="hero-grain relative mb-8 flex min-h-[272px] overflow-hidden rounded-2xl bg-[#edf1e3] p-7 sm:p-9 xl:min-h-[290px] xl:p-10">
-              <div className="relative z-10 w-full sm:max-w-[62%] xl:max-w-[56%]">
-                <span className="inline-flex items-center gap-2 rounded-full border border-[#dce3cf] bg-[#f7f9f1]/70 px-2.5 py-1 text-[11px] font-medium tracking-[0.1em] text-[#6c795f]">
-                  <span className="size-1.5 rounded-full bg-[#71845c]" /> A HOME
-                  FOR CURIOUS MINDS
-                </span>
-                <h1 className="display-serif mt-5 text-[32px] leading-[1.12] tracking-[-1.1px] text-[#2e4633] sm:text-[39px] xl:text-[46px]">
-                  A little inspiration.
-                  <br />
-                  <span className="italic">Endless possibilities.</span>
-                </h1>
-                <p className="mt-4 max-w-[355px] text-xs leading-[1.8] text-[#66705f]">
-                  Discover a new perspective. Share a piece of your world.
-                  <br className="hidden xl:block" /> Create something only you
-                  could imagine.
-                </p>
-                <button
-                  onClick={() => openComposer()}
-                  className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-[#355335]"
-                >
-                  Let&apos;s create something{" "}
-                  <ArrowRight className="size-3.5" />
-                </button>
-              </div>
-              <div
-                aria-hidden="true"
-                className="absolute inset-y-0 right-0 hidden w-[43%] overflow-hidden sm:block"
+        {privateView && signedOut ? (
+          <section className="mx-auto flex min-h-80 max-w-md flex-col items-center justify-center py-10 text-center">
+            <LogIn className="mb-5 size-7 text-muted-foreground" />
+            <h2 className="text-xl font-semibold">
+              {view === "mine"
+                ? "Sign in to view your posts"
+                : "Sign in to create with AI"}
+            </h2>
+            <p className="mb-6 mt-3 text-sm leading-6 text-muted-foreground">
+              {view === "mine"
+                ? "Find and manage the posts you have shared."
+                : "Generate and refine images before sharing them."}
+            </p>
+            <Button asChild>
+              <Link
+                href={`/login?next=${encodeURIComponent(view === "mine" ? "/my-posts" : "/studio")}`}
               >
-                <div className="absolute -right-6 -top-12 size-[370px] rounded-full border border-[#d6deca]" />
-                <div className="absolute -right-12 -top-16 size-[420px] rounded-full border border-[#d6deca]/60" />
-                <div className="absolute right-[24%] top-10 h-[205px] w-[158px] rotate-[-13deg] overflow-hidden rounded-lg border-[5px] border-white bg-white shadow-xl shadow-[#4d6042]/15 xl:right-[32%] xl:h-[230px] xl:w-[173px]">
-                  <img
-                    src="/images/alpine-lake.jpg"
-                    alt=""
-                    className="size-full object-cover"
-                  />
-                </div>
-                <div className="absolute -right-3 top-[78px] h-[210px] w-[170px] rotate-[12deg] rounded-lg border-[5px] border-white bg-white shadow-xl shadow-[#4d6042]/15 xl:right-[3%] xl:top-[66px] xl:h-[225px] xl:w-[176px]">
-                  <img
-                    src="/images/interior.jpg"
-                    alt=""
-                    className="h-[86%] w-full rounded-sm object-cover"
-                  />
-                  <div className="pt-1.5 text-center font-serif text-[10px] italic text-[#7a816c]">
-                    a different kind of everyday
-                  </div>
-                </div>
-                <span className="absolute right-[13%] top-7 flex size-10 rotate-12 items-center justify-center rounded-xl bg-[#d7e4b9] text-[#52643b] shadow-sm">
-                  <Sparkles className="size-5" />
-                </span>
-              </div>
-            </section>
-          ) : (
-            <section className="mb-9 pt-3">
-              <p className="mb-3 text-[10px] font-semibold tracking-[0.17em] text-primary">
-                {view === "mine"
-                  ? "MADE BY YOU"
-                  : view === "saved"
-                    ? "YOUR PERSONAL COLLECTION"
-                    : "FROM WHAT IF TO WHAT’S NEXT"}
-              </p>
-              <h1 className="display-serif text-3xl tracking-tight sm:text-[40px]">
-                {pageTitle}
-              </h1>
-              <p className="mt-3 text-sm text-muted-foreground">
-                {view === "mine"
-                  ? "The moments, experiments, and ideas you have shared."
-                  : view === "saved"
-                    ? "Your bookmarks, kept in this browser. A little inspiration for later."
-                    : "Bring an idea to life with AI, then make it part of your story."}
-              </p>
-            </section>
-          )}
-
-          {privateView && signedOut ? (
-            <section className="flex min-h-[370px] flex-col items-center justify-center rounded-2xl border bg-white p-8 text-center">
-              <span className="mb-5 grid size-14 place-items-center rounded-full bg-[#edf1e3]">
-                <LogIn className="size-6 text-primary" />
-              </span>
-              <h2 className="display-serif text-3xl">
-                {view === "mine"
-                  ? "A space of your own."
-                  : "Your next idea starts here."}
-              </h2>
-              <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
-                {view === "mine"
-                  ? "Sign in to find, search, and manage everything you have shared."
-                  : "Sign in to generate images, refine your ideas, and share them with the community."}
-              </p>
-              <Button asChild className="mt-6">
-                <Link
-                  href={`/login?next=${encodeURIComponent(view === "mine" ? "/my-posts" : "/studio")}`}
-                >
-                  Sign in to continue <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-              <Link href="/register" className="mt-4 text-xs text-primary">
-                New here? Create an account
+                Sign in to continue
               </Link>
-            </section>
-          ) : view === "studio" ? (
-            <section>
-              <div className="relative overflow-hidden rounded-2xl border border-[#dce3d0] bg-[#edf1e3] p-7 sm:p-10">
-                <WandSparkles className="mb-5 size-8 text-primary" />
-                <h2 className="display-serif text-3xl">
-                  What&apos;s on your mind?
-                </h2>
-                <p className="mb-7 mt-3 max-w-md text-sm leading-6 text-muted-foreground">
-                  A place that doesn&apos;t exist. A fresh take on an everyday
-                  moment. Start with a few words and see where they take you.
-                </p>
-                <Button onClick={() => openComposer()}>
-                  <Sparkles className="size-4" /> Open the creative studio{" "}
-                  <ArrowRight className="size-4" />
-                </Button>
-                <p className="mt-4 text-xs text-muted-foreground">
-                  Generate an image, add your story, and preview before
-                  publishing.
+            </Button>
+            <Link
+              href="/register"
+              className="mt-4 text-sm text-muted-foreground underline underline-offset-4"
+            >
+              Create an account
+            </Link>
+          </section>
+        ) : view === "studio" ? (
+          <section className="max-w-3xl">
+            <div className="flex flex-col items-start gap-5 rounded-lg border p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="font-semibold">Start with an idea</h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Describe an image or upload a photo to edit.
                 </p>
               </div>
-              <h2 className="mb-5 mt-9 text-sm font-semibold">
-                Need a starting point?
-              </h2>
-              <div className="grid gap-5 sm:grid-cols-3">
-                {prompts.map((prompt) => (
+              <Button onClick={() => openComposer()}>
+                <Sparkles className="size-4" />
+                Open studio
+              </Button>
+            </div>
+            <h2 className="mb-3 mt-8 text-sm font-medium">Or try a prompt</h2>
+            <div className="divide-y border-y">
+              {prompts.map((prompt) => (
+                <button
+                  key={prompt.label}
+                  onClick={() => openComposer(prompt.text)}
+                  className="flex w-full items-center justify-between gap-5 py-5 text-left hover:text-primary"
+                >
+                  <span>
+                    <span className="text-sm font-medium">{prompt.label}</span>
+                    <span className="mt-1 block text-sm leading-6 text-muted-foreground">
+                      {prompt.text}
+                    </span>
+                  </span>
+                  <ArrowRight className="size-4 shrink-0" />
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <>
+            <div className="mb-6 flex items-center gap-4 border-b pb-3">
+              <div
+                className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
+                aria-label="Topics"
+              >
+                {topics.map((item) => (
                   <button
-                    key={prompt.label}
-                    onClick={() => openComposer(prompt.text)}
-                    className="group overflow-hidden rounded-xl border bg-white text-left"
+                    key={item}
+                    onClick={() => {
+                      setTopic(item);
+                      setSubmittedQuery("");
+                      setQuery("");
+                      setScope("keywords");
+                      setVisibleCount(12);
+                    }}
+                    aria-pressed={topic === item && !submittedQuery}
+                    className={cn(
+                      "min-h-10 shrink-0 rounded-md px-3 text-sm transition-colors",
+                      topic === item && !submittedQuery
+                        ? "bg-muted font-medium text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
                   >
-                    <img
-                      src={prompt.image}
-                      alt=""
-                      className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                    />
-                    <span className="flex items-center justify-between p-4 text-sm font-medium">
-                      {prompt.label}
-                      <ArrowRight className="size-4 text-primary" />
-                    </span>
-                    <span className="block px-4 pb-4 text-[11px] text-muted-foreground">
-                      Use this prompt · Photo inspiration
-                    </span>
+                    {item}
                   </button>
                 ))}
               </div>
-            </section>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-[21px] font-semibold tracking-[-0.6px]">
-                    {view === "discover"
-                      ? "Find your next spark"
-                      : view === "mine"
-                        ? "Your posts"
-                        : "Saved for later"}
-                  </h2>
-                  <p className="mt-1.5 text-xs text-[#66705f]">
-                    {signedOut && view === "discover"
-                      ? "A curated preview. Sign in to explore community posts."
-                      : view === "mine"
-                        ? "Search your own posts by caption."
-                        : view === "saved"
-                          ? `${saved.posts.length} saved ${saved.posts.length === 1 ? "post" : "posts"} · Only on this browser`
-                          : "Fresh perspectives from the community."}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {token && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Refresh posts"
-                      onClick={() => setRefresh((r) => r + 1)}
-                    >
-                      <RefreshCw className="size-4" />
-                    </Button>
-                  )}
-                  <div
-                    className="flex rounded-lg border bg-white p-1"
-                    role="group"
-                    aria-label="Media type"
-                  >
-                    {[
-                      ["all", "All work"],
-                      ["image", "Images"],
-                      ["video", "Videos"],
-                    ].map(([value, label]) => (
-                      <button
-                        key={value}
-                        onClick={() => {
-                          setMediaType(value);
-                          setVisibleCount(12);
-                        }}
-                        aria-pressed={mediaType === value}
-                        className={cn(
-                          "rounded-md px-3 py-1.5 text-[10px]",
-                          mediaType === value
-                            ? "bg-[#f0f2eb] font-semibold text-primary"
-                            : "text-muted-foreground hover:bg-muted",
-                        )}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <select
+                aria-label="Media type"
+                value={mediaType}
+                onChange={(event) => {
+                  setMediaType(event.target.value);
+                  setVisibleCount(12);
+                }}
+                className="h-10 max-w-[115px] shrink-0 rounded-md border bg-white px-2 text-sm"
+              >
+                <option value="all">All media</option>
+                <option value="image">Images</option>
+                <option value="video">Videos</option>
+              </select>
+            </div>
+            {searchWord && (
+              <div className="mb-5 flex items-center justify-between gap-4 text-sm">
+                <p className="text-muted-foreground">
+                  Results for{" "}
+                  <strong className="font-medium text-foreground">
+                    “{searchWord}”
+                  </strong>
+                  {view === "mine" ? " in your posts" : ""}
+                </p>
+                <button
+                  onClick={clearSearch}
+                  className="inline-flex min-h-9 shrink-0 items-center gap-2 text-muted-foreground hover:text-foreground"
+                >
+                  Clear filters
+                  <X className="size-4" />
+                </button>
               </div>
-              <div className="mb-6 mt-6 flex flex-wrap items-center justify-between gap-4 border-b pb-5">
-                <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
-                  {topics.map((item) => (
-                    <button
-                      key={item}
-                      onClick={() => {
-                        setTopic(item);
-                        setSubmittedQuery("");
-                        setQuery("");
-                        setScope("keywords");
-                        setVisibleCount(12);
-                      }}
-                      aria-pressed={topic === item && !submittedQuery}
-                      className={cn(
-                        "shrink-0 rounded-full border px-3.5 py-2 text-[10px] transition-colors",
-                        topic === item && !submittedQuery
-                          ? "border-[#3b5d43] bg-[#3b5d43] text-white"
-                          : "border-[#e4e7df] bg-white text-[#66705f] hover:border-primary",
-                      )}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-                {view === "discover" && (
-                  <label className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                    Search by
-                    <select
-                      aria-label="Search scope"
-                      value={scope}
-                      onChange={(e) =>
-                        setScope(e.target.value as "keywords" | "user")
-                      }
-                      className="rounded-md border bg-white px-2 py-1.5 text-foreground"
-                    >
-                      <option value="keywords">Caption</option>
-                      <option value="user">Creator</option>
-                    </select>
-                  </label>
+            )}
+            {pending ? (
+              <div
+                className="feed-grid"
+                aria-label="Loading posts"
+                aria-busy="true"
+              >
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index}>
+                    <Skeleton className="aspect-[4/3] w-full rounded-lg" />
+                    <Skeleton className="mt-4 h-4 w-3/4" />
+                    <Skeleton className="mt-3 h-3 w-1/2" />
+                  </div>
+                ))}
+              </div>
+            ) : loadError ? (
+              <div
+                role="alert"
+                className="flex min-h-72 flex-col items-center justify-center p-8 text-center"
+              >
+                <ImageIcon className="mb-4 size-7 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">
+                  We couldn&apos;t load the community.
+                </h2>
+                <p className="mb-5 mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                  {load.error}
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setRefresh((r) => r + 1)}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : displayPosts.length === 0 ? (
+              <div className="flex min-h-72 flex-col items-center justify-center px-5 py-10 text-center">
+                {view === "saved" ? (
+                  <Bookmark className="mb-4 size-7 text-muted-foreground" />
+                ) : (
+                  <Search className="mb-4 size-7 text-muted-foreground" />
+                )}
+                <h2 className="text-xl font-semibold">
+                  {searchWord || mediaType !== "all"
+                    ? "No matching posts"
+                    : view === "saved"
+                      ? "No saved posts yet"
+                      : view === "mine"
+                        ? "No posts yet"
+                        : "No community posts yet"}
+                </h2>
+                <p className="mb-5 mt-2 text-sm leading-6 text-muted-foreground">
+                  {searchWord || mediaType !== "all"
+                    ? "Try another search or clear your filters."
+                    : view === "saved"
+                      ? "Save a post to find it here later."
+                      : "Share an image or video to get started."}
+                </p>
+                {searchWord || mediaType !== "all" ? (
+                  <Button variant="outline" onClick={clearSearch}>
+                    Clear filters
+                  </Button>
+                ) : view === "saved" ? (
+                  <Button asChild variant="outline">
+                    <Link href="/">Explore posts</Link>
+                  </Button>
+                ) : (
+                  <Button onClick={() => openComposer()}>
+                    <Plus className="size-4" />
+                    Create your first post
+                  </Button>
                 )}
               </div>
-              {searchWord && (
-                <div className="mb-5 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>
-                    Results for{" "}
-                    <strong className="font-semibold text-foreground">
-                      “{searchWord}”
-                    </strong>
-                    {view === "mine" ? " in your posts" : ""}
-                  </span>
-                  <button
-                    onClick={clearSearch}
-                    className="flex items-center gap-1 text-primary"
-                  >
-                    Clear filters <X className="size-3" />
-                  </button>
-                </div>
-              )}
-              {pending ? (
-                <div
-                  className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3"
-                  aria-label="Loading posts"
-                  aria-busy="true"
-                >
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i}>
-                      <Skeleton
-                        className={cn(
-                          "w-full rounded-xl",
-                          i % 2 ? "h-72" : "h-56",
-                        )}
-                      />
-                      <Skeleton className="mt-4 h-4 w-3/4" />
-                      <Skeleton className="mt-3 h-3 w-1/2" />
-                    </div>
+            ) : (
+              <>
+                <div className="feed-grid">
+                  {displayPosts.slice(0, visibleCount).map((post) => (
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      saved={saved.posts.some((p) => p.id === post.id)}
+                      owned={!post.sample && post.user === user?.username}
+                      onOpen={() => setSelected(post)}
+                      onSave={() => saved.toggle(post)}
+                      onDelete={() => setDeleteTarget(post)}
+                    />
                   ))}
                 </div>
-              ) : loadError ? (
-                <div
-                  role="alert"
-                  className="flex min-h-64 flex-col items-center justify-center rounded-xl border bg-white p-8 text-center"
-                >
-                  <Layers className="mb-4 size-7 text-muted-foreground" />
-                  <h3 className="text-lg font-medium">
-                    We couldn&apos;t load the community.
-                  </h3>
-                  <p className="mb-5 mt-2 max-w-sm text-sm text-muted-foreground">
-                    {load.error}
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setRefresh((r) => r + 1)}
-                  >
-                    Try again
-                  </Button>
-                </div>
-              ) : displayPosts.length === 0 ? (
-                <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center">
-                  <span className="mb-4 grid size-12 place-items-center rounded-full bg-[#edf1e3]">
-                    {view === "saved" ? (
-                      <Bookmark className="size-5 text-primary" />
-                    ) : (
-                      <Search className="size-5 text-primary" />
-                    )}
-                  </span>
-                  <h3 className="display-serif text-2xl">
-                    {searchWord || mediaType !== "all"
-                      ? "A fresh search might spark something."
-                      : view === "saved"
-                        ? "Make a little room for inspiration."
-                        : view === "mine"
-                          ? "Your story starts with one post."
-                          : "Be the first to share something."}
-                  </h3>
-                  <p className="mb-5 mt-2 max-w-sm text-sm text-muted-foreground">
-                    {searchWord || mediaType !== "all"
-                      ? "Try another word or clear the filters to see more."
-                      : view === "saved"
-                        ? "Tap the bookmark on any post to keep it here."
-                        : "A moment, an idea, a different perspective. Make it yours."}
-                  </p>
-                  {searchWord || mediaType !== "all" ? (
-                    <Button variant="outline" onClick={clearSearch}>
-                      Clear filters
+                {displayPosts.length > visibleCount && (
+                  <div className="mt-10 text-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => setVisibleCount((count) => count + 12)}
+                    >
+                      Load more
+                      <ArrowDown className="size-4" />
                     </Button>
-                  ) : view === "saved" ? (
-                    <Button asChild variant="outline">
-                      <Link href="/">Explore posts</Link>
-                    </Button>
-                  ) : (
-                    <Button onClick={() => openComposer()}>
-                      <Plus className="size-4" /> Create your first post
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <div className="feed-grid">
-                    {displayPosts.slice(0, visibleCount).map((post, index) => (
-                      <article key={post.id} className="group">
-                        <div
-                          className="relative overflow-hidden rounded-xl bg-[#e8ece2]"
-                          style={{
-                            aspectRatio:
-                              post.aspect ||
-                              (index % 3 === 1 ? "4 / 5" : "4 / 3"),
-                          }}
-                        >
-                          {post.type === "video" ? (
-                            <PostMedia post={post} className="w-full" />
-                          ) : (
-                            <button
-                              className="block size-full overflow-hidden text-left"
-                              onClick={() => setSelected(post)}
-                              aria-label={`View post: ${post.message}`}
-                            >
-                              <PostMedia
-                                post={post}
-                                className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.025]"
-                              />
-                              <span className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/5" />
-                            </button>
-                          )}
-                          <span className="absolute left-3 top-3 rounded-md bg-white/90 px-2 py-1 text-[10px] font-semibold tracking-wide text-[#5d6955] backdrop-blur">
-                            {post.sample
-                              ? post.category
-                              : post.type === "video"
-                                ? "VIDEO"
-                                : "COMMUNITY"}
-                          </span>
-                          <button
-                            aria-label={
-                              saved.posts.some((p) => p.id === post.id)
-                                ? `Unsave post: ${post.message}`
-                                : `Save post: ${post.message}`
-                            }
-                            aria-pressed={saved.posts.some(
-                              (p) => p.id === post.id,
-                            )}
-                            onClick={() => saved.toggle(post)}
-                            className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full bg-white/95 text-[#4a5945] shadow-sm hover:bg-[#edf1e3]"
-                          >
-                            <Bookmark
-                              className={cn(
-                                "size-3.5",
-                                saved.posts.some((p) => p.id === post.id) &&
-                                  "fill-primary text-primary",
-                              )}
-                            />
-                          </button>
-                        </div>
-                        <button
-                          onClick={() => setSelected(post)}
-                          className="mt-3 block w-full truncate text-left text-[12px] font-medium tracking-[-0.15px] hover:text-primary"
-                        >
-                          {post.message || "A moment worth sharing"}
-                        </button>
-                        <div className="mt-2 flex items-center justify-between">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <Avatar
-                              name={post.user}
-                              className={cn(
-                                "size-5 text-[7px]",
-                                index % 3 === 1 &&
-                                  "bg-[#ece5dd] text-[#66705f]",
-                                index % 3 === 2 &&
-                                  "bg-[#e5e7ed] text-[#666a81]",
-                              )}
-                            />
-                            <span className="truncate text-[11px] text-[#66705f]">
-                              {post.user}
-                            </span>
-                          </span>
-                          {post.sample ? (
-                            <span className="shrink-0 text-[11px] text-[#66705f]">
-                              INSPIRATION
-                            </span>
-                          ) : (
-                            post.user === user?.username && (
-                              <button
-                                onClick={() => setDeleteTarget(post)}
-                                aria-label={`Delete post: ${post.message}`}
-                                className="rounded p-1 text-muted-foreground hover:text-destructive"
-                              >
-                                <Trash2 className="size-3.5" />
-                              </button>
-                            )
-                          )}
-                        </div>
-                      </article>
-                    ))}
                   </div>
-                  {displayPosts.length > visibleCount ? (
-                    <div className="mt-5 text-center">
-                      <Button
-                        variant="outline"
-                        onClick={() => setVisibleCount((count) => count + 12)}
-                      >
-                        A little more inspiration{" "}
-                        <ArrowDown className="size-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="mt-7 flex items-center justify-center gap-3 text-[11px] text-[#66705f]">
-                      <span className="h-px w-10 bg-border" />
-                      <Feather className="size-3.5" />
-                      {signedOut && view === "discover"
-                        ? "A world of inspiration is waiting for you."
-                        : "You’re all caught up. Go make something."}
-                      <span className="h-px w-10 bg-border" />
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </main>
-      </div>
-      <nav
-        aria-label="Mobile navigation"
-        className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t bg-[#fdfefa]/95 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden"
-      >
-        {[
-          ...links,
-          {
-            href: "/studio",
-            view: "studio",
-            label: "AI Studio",
-            icon: WandSparkles,
-          },
-        ].map(({ href, view: itemView, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            aria-current={view === itemView ? "page" : undefined}
-            className={cn(
-              "flex min-w-16 flex-col items-center gap-1 rounded-lg px-3 py-2 text-[11px]",
-              view === itemView
-                ? "bg-[#edf1e3] font-semibold text-primary"
-                : "text-muted-foreground",
+                )}
+              </>
             )}
-          >
-            <Icon className="size-[19px]" />
-            {label}
-          </Link>
-        ))}
-        <button
-          onClick={() => openComposer()}
-          aria-label="Create a post"
-          className="grid size-10 place-items-center rounded-xl bg-primary text-white"
-        >
-          <Plus className="size-5" />
-        </button>
-      </nav>
+          </>
+        )}
+      </main>
+      <MobileNavigation view={view} />
       {token && (
         <PostComposer
           key={token}
@@ -1092,8 +593,8 @@ function NetworkAppContent({ view, initialQuery = "" }: NetworkAppProps) {
               <DialogHeader>
                 <DialogTitle className="pr-6">
                   {selected.sample
-                    ? "A little inspiration"
-                    : `A moment from ${selected.user}`}
+                    ? "Preview image"
+                    : `Post by ${selected.user}`}
                 </DialogTitle>
                 <DialogDescription>
                   {selected.sample
@@ -1178,44 +679,6 @@ function NetworkAppContent({ view, initialQuery = "" }: NetworkAppProps) {
               {deleting && <Loader2 className="size-4 animate-spin" />}Delete
               post
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={help} onOpenChange={setHelp}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>A little help finding your way.</DialogTitle>
-            <DialogDescription>
-              Discover, create, and make yourself at home.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-5 py-3 text-sm leading-6">
-            {[
-              [
-                "Discover",
-                "Sign in to browse recent community posts. Search by caption or by an exact creator username.",
-              ],
-              [
-                "Make it yours",
-                "Upload a photo or video, or use AI Studio to generate and refine an image before publishing.",
-              ],
-              [
-                "Keep your favorites",
-                "Bookmarks stay in this browser and are separate for each account.",
-              ],
-              [
-                "Your posts",
-                "Search your published captions in My posts. You can remove your own posts; published posts cannot be edited with the current service.",
-              ],
-            ].map(([title, description]) => (
-              <div key={title}>
-                <h3 className="mb-1 flex items-center gap-2 font-semibold">
-                  <Check className="size-4 text-primary" />
-                  {title}
-                </h3>
-                <p className="pl-6 text-muted-foreground">{description}</p>
-              </div>
-            ))}
           </div>
         </DialogContent>
       </Dialog>

@@ -46,15 +46,15 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const PROMPTS = [
   {
-    label: "A quieter kind of city",
+    label: "City photography",
     text: "A quiet sunlit street in Kyoto, a small coffee shop, warm film photography, soft sage green and cream tones, thoughtful composition.",
   },
   {
-    label: "Something otherworldly",
+    label: "Surreal landscape",
     text: "A dreamlike greenhouse floating above the clouds, lush plants and curved glass, soft morning light, rich cinematic details.",
   },
   {
-    label: "Everyday, reimagined",
+    label: "Minimal still life",
     text: "An editorial still life of a ceramic coffee cup and a single branch, natural window light, textured warm white background, minimal composition.",
   },
 ];
@@ -243,7 +243,7 @@ export function PostComposer({
       if (controller.signal.aborted) return;
       setMedia(file);
       setGenerated(true);
-      toast.success("Your image is ready. Add your story and share it.");
+      toast.success("Image ready. Review it before publishing.");
     } catch (cause) {
       if (controller.signal.aborted) return;
       setError(
@@ -285,7 +285,7 @@ export function PostComposer({
       } catch {
         /* Storage is optional. */
       }
-      toast.success("Your post is out in the world.");
+      toast.success("Your post has been published.");
       onOpenChange(false);
       try {
         await onPublished();
@@ -310,7 +310,7 @@ export function PostComposer({
   return (
     <Dialog open={open} onOpenChange={closeComposer}>
       <DialogContent
-        className="max-h-[92dvh] gap-0 overflow-y-auto rounded-2xl border-[#e0e5dc] bg-[#fffefa] p-0 sm:max-w-[720px]"
+        className="max-h-[92dvh] gap-0 overflow-y-auto rounded-xl border-border bg-background p-0 sm:max-w-[640px]"
         onInteractOutside={(event) => {
           if (publishing) event.preventDefault();
         }}
@@ -318,89 +318,84 @@ export function PostComposer({
           if (publishing) event.preventDefault();
         }}
       >
-        <DialogHeader className="text-left border-b border-[#e9ebe3] px-6 pb-5 pt-6 sm:px-8">
-          <div className="mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#66705f]">
-            <span className="size-1.5 rounded-full bg-[#98af73]" /> A little
-            idea. A new connection.
-          </div>
-          <DialogTitle className="display-serif text-2xl font-semibold tracking-[-0.035em] text-[#264d3a]">
-            What’s on your mind?
+        <DialogHeader className="text-left border-b border-border px-6 py-5">
+          <DialogTitle className="text-xl font-semibold tracking-tight text-foreground">
+            Create a post
           </DialogTitle>
-          <DialogDescription className="text-sm leading-6 text-[#66705f]">
-            Share something you made, found, or can’t stop thinking about.
+          <DialogDescription className="text-sm leading-6 text-muted-foreground">
+            Add a caption and upload media or generate an image with AI.
           </DialogDescription>
         </DialogHeader>
         {!ready ? (
           <div
             role="status"
-            className="flex items-center justify-center gap-2 p-12 text-sm text-[#66705f]"
+            className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground"
           >
-            <Loader2 className="size-4 animate-spin" /> Getting your space
-            ready...
+            <Loader2 className="size-4 animate-spin" /> Loading...
           </div>
         ) : !user || !token ? (
           <div className="p-8 text-center">
-            <p className="mb-5 text-sm text-[#66705f]">
+            <p className="mb-5 text-sm text-muted-foreground">
               Sign in to share your ideas with the community.
             </p>
-            <Button asChild className="rounded-xl bg-[#264e3d]">
+            <Button asChild className="rounded-xl bg-primary">
               <Link href="/login">Sign in to create</Link>
             </Button>
           </div>
         ) : (
           <form onSubmit={publish}>
-            <div className="space-y-6 px-6 py-6 sm:px-8">
+            <div className="space-y-5 px-6 py-5">
               <div className="flex items-center gap-3">
                 <div
-                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#e8eddb] text-sm font-semibold uppercase text-[#536b40]"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold uppercase text-foreground"
                   aria-hidden="true"
                 >
                   {user.username.slice(0, 2)}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#354b3b]">
+                  <p className="text-sm font-semibold text-foreground">
                     {user.username}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-[#66705f]">
-                    Sharing with the community
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Public post
                   </p>
                 </div>
               </div>
               <div className="space-y-2">
                 <Label
                   htmlFor="post-caption"
-                  className="text-xs font-semibold text-[#455440]"
+                  className="text-sm font-medium text-foreground"
                 >
                   Your story
                 </Label>
                 <Textarea
                   id="post-caption"
-                  placeholder="A thought, a story, a tiny moment worth sharing..."
+                  placeholder="Write a caption for your post..."
                   value={message}
                   onChange={(event) => setMessage(event.target.value)}
                   disabled={publishing}
                   maxLength={5000}
                   required
-                  className="min-h-24 resize-y rounded-xl border-[#e1e5da] bg-white text-sm leading-6 placeholder:text-[#66705f]"
+                  className="min-h-24 resize-y rounded-lg border-border bg-background text-sm leading-6 placeholder:text-muted-foreground"
                 />
-                <p className="text-right text-[10px] tabular-nums text-[#66705f]">
+                <p className="text-right text-xs tabular-nums text-muted-foreground">
                   {message.length.toLocaleString()} / 5,000
                 </p>
               </div>
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="mb-4 grid h-10 w-full grid-cols-2 rounded-xl bg-[#f0f2e9] p-1">
+                <TabsList className="mb-4 grid h-10 w-full grid-cols-2 rounded-lg bg-muted p-1">
                   <TabsTrigger
                     value="upload"
-                    className="gap-2 rounded-lg text-xs data-[state=active]:bg-white data-[state=active]:text-[#31513b]"
+                    className="gap-2 rounded-md text-sm data-[state=active]:bg-background data-[state=active]:text-foreground"
                   >
-                    <Paperclip className="size-3.5" aria-hidden="true" /> Upload
+                    <Paperclip className="size-4" aria-hidden="true" /> Upload
                     media
                   </TabsTrigger>
                   <TabsTrigger
                     value="ai"
-                    className="gap-2 rounded-lg text-xs data-[state=active]:bg-white data-[state=active]:text-[#31513b]"
+                    className="gap-2 rounded-md text-sm data-[state=active]:bg-background data-[state=active]:text-foreground"
                   >
-                    <Sparkles className="size-3.5" aria-hidden="true" /> Create
+                    <Sparkles className="size-4" aria-hidden="true" /> Create
                     with AI
                   </TabsTrigger>
                 </TabsList>
@@ -425,31 +420,31 @@ export function PostComposer({
                     onDragLeave={() => setDragging(false)}
                     onDrop={handleDrop}
                     disabled={busy}
-                    className={`flex w-full flex-col items-center justify-center rounded-xl border border-dashed px-5 py-7 text-center transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#436246] disabled:cursor-wait disabled:opacity-60 ${dragging ? "border-[#67884e] bg-[#eaf0df]" : "border-[#d6ddcb] bg-[#f7f8f1] hover:border-[#9cad89] hover:bg-[#f1f4e8]"}`}
+                    className={`flex w-full flex-col items-center justify-center rounded-lg border border-dashed px-5 py-7 text-center transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-wait disabled:opacity-60 ${dragging ? "border-primary bg-muted" : "border-border bg-background hover:border-primary/50 hover:bg-muted/50"}`}
                   >
-                    <div className="mb-3 rounded-xl bg-[#e8eddd] p-2.5 text-[#66705f]">
+                    <div className="mb-3 p-1 text-muted-foreground">
                       <UploadCloud className="size-5" aria-hidden="true" />
                     </div>
-                    <span className="text-xs font-medium text-[#4c6040]">
+                    <span className="text-sm font-medium text-foreground">
                       {media
                         ? "Choose a different image or video"
-                        : "Drop something lovely here, or browse"}
+                        : "Drop an image or video, or browse"}
                     </span>
-                    <span className="mt-1.5 text-[10px] text-[#66705f]">
+                    <span className="mt-1.5 text-xs text-muted-foreground">
                       Images up to 10 MB · Videos up to 50 MB
                     </span>
                   </button>
                 </TabsContent>
                 <TabsContent value="ai" className="mt-0 space-y-3">
-                  <div className="rounded-xl border border-[#e3e7d7] bg-[#f5f6eb] p-4">
+                  <div className="space-y-3">
                     <div className="mb-3 flex items-center gap-2">
                       <WandSparkles
-                        className="size-4 text-[#66705f]"
+                        className="size-4 text-muted-foreground"
                         aria-hidden="true"
                       />
                       <Label
                         htmlFor="image-prompt"
-                        className="text-xs font-semibold text-[#4e6041]"
+                        className="text-sm font-medium text-foreground"
                       >
                         {hasImage
                           ? "Reimagine your image"
@@ -467,15 +462,15 @@ export function PostComposer({
                           ? "Describe what you’d like to change about the image..."
                           : "A sunlit reading nook, wildflowers on the windowsill, warm film tones..."
                       }
-                      className="min-h-24 resize-y rounded-lg border-[#e1e5d3] bg-white text-sm leading-6 placeholder:text-[#66705f]"
+                      className="min-h-24 resize-y rounded-lg border-border bg-background text-sm leading-6 placeholder:text-muted-foreground"
                     />
                     <div className="mt-2 flex items-center justify-between gap-4">
-                      <p className="text-[10px] leading-4 text-[#66705f]">
+                      <p className="text-xs leading-4 text-muted-foreground">
                         {hasImage
                           ? "Your attached image is used as a reference."
                           : "Describe the subject, mood, colors, and style."}
                       </p>
-                      <span className="shrink-0 text-[10px] tabular-nums text-[#66705f]">
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                         {prompt.length} / 4,000
                       </span>
                     </div>
@@ -486,7 +481,7 @@ export function PostComposer({
                           type="button"
                           disabled={busy}
                           onClick={() => setPrompt(suggestion.text)}
-                          className="rounded-full border border-[#dfe4d1] bg-[#fffef8] px-2.5 py-1 text-[10px] text-[#66705f] transition hover:border-[#9fae86] hover:text-[#4a613b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#436246] disabled:opacity-50"
+                          className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
                         >
                           {suggestion.label}
                         </button>
@@ -496,18 +491,18 @@ export function PostComposer({
                       type="button"
                       onClick={generateImage}
                       disabled={busy || !prompt.trim()}
-                      className="mt-4 h-9 w-full gap-2 rounded-lg bg-[#687c42] text-xs text-white hover:bg-[#566b33]"
+                      className="mt-4 h-10 w-full gap-2 rounded-lg bg-primary text-sm text-primary-foreground hover:bg-primary/90"
                     >
                       {generating ? (
                         <Loader2
-                          className="size-3.5 animate-spin"
+                          className="size-4 animate-spin"
                           aria-hidden="true"
                         />
                       ) : (
-                        <Sparkles className="size-3.5" aria-hidden="true" />
+                        <Sparkles className="size-4" aria-hidden="true" />
                       )}
                       {generating
-                        ? "Bringing your idea to life..."
+                        ? "Generating image..."
                         : hasImage
                           ? "Reimagine image"
                           : "Generate image"}
@@ -515,9 +510,9 @@ export function PostComposer({
                     {generating && (
                       <div
                         role="status"
-                        className="mt-3 flex items-center justify-between gap-3 text-[10px] text-[#66705f]"
+                        className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground"
                       >
-                        <span>This can take a minute. Your draft is safe.</span>
+                        <span>Generation can take a minute.</span>
                         <button
                           type="button"
                           onClick={() => {
@@ -525,7 +520,7 @@ export function PostComposer({
                             generationController.current = null;
                             setGenerating(false);
                           }}
-                          className="rounded px-1 py-1 font-medium text-[#4d623e] underline underline-offset-2 focus-visible:outline-2"
+                          className="rounded px-1 py-1 font-medium text-foreground underline underline-offset-2 focus-visible:outline-2"
                         >
                           Cancel
                         </button>
@@ -535,7 +530,7 @@ export function PostComposer({
                 </TabsContent>
               </Tabs>
               {media && previewUrl && (
-                <div className="overflow-hidden rounded-xl border border-[#e0e5d9] bg-[#f1f3eb]">
+                <div className="overflow-hidden rounded-xl border border-border bg-muted">
                   <div className="relative flex max-h-72 min-h-28 items-center justify-center overflow-hidden">
                     {media.type.startsWith("video/") ? (
                       <video
@@ -559,20 +554,20 @@ export function PostComposer({
                         setGenerated(false);
                       }}
                       aria-label="Remove attached media"
-                      className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-white/95 text-[#43543a] shadow-sm transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#436246] disabled:opacity-50"
+                      className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-background/95 text-foreground shadow-sm transition hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
                     >
                       <X className="size-4" />
                     </button>
                   </div>
-                  <div className="flex items-center justify-between gap-3 border-t border-[#e0e5d9] bg-white px-3 py-2.5">
-                    <div className="flex min-w-0 items-center gap-2 text-[10px] text-[#66705f]">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background px-3 py-2.5">
+                    <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                       {generated ? (
-                        <Sparkles className="size-3.5 shrink-0" />
+                        <Sparkles className="size-4 shrink-0" />
                       ) : (
-                        <ImagePlus className="size-3.5 shrink-0" />
+                        <ImagePlus className="size-4 shrink-0" />
                       )}
                       <span className="truncate">
-                        {generated ? "Made with a little AI magic" : media.name}
+                        {generated ? "AI-generated image" : media.name}
                       </span>
                       <span className="shrink-0">
                         {(media.size / 1024 / 1024).toFixed(1)} MB
@@ -582,7 +577,7 @@ export function PostComposer({
                       <a
                         href={previewUrl}
                         download={media.name}
-                        className="flex shrink-0 items-center gap-1 rounded text-[10px] font-medium text-[#4b643b] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                        className="flex shrink-0 items-center gap-1 rounded text-sm font-medium text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
                       >
                         <Download className="size-3" aria-hidden="true" /> Save
                         image
@@ -594,28 +589,29 @@ export function PostComposer({
               {error && (
                 <div
                   role="alert"
-                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-800"
+                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-800"
                 >
                   {error}
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between gap-4 border-t border-[#e6e9df] bg-[#f9faf4] px-6 py-4 sm:px-8">
-              <p className="max-w-44 text-[10px] leading-4 text-[#66705f]">
-                Text drafts stay in this browser tab. Media stays until you reload.
+            <div className="flex flex-col items-stretch justify-between gap-3 border-t border-border bg-background px-6 py-4 sm:flex-row sm:items-center sm:gap-4">
+              <p className="max-w-56 text-xs leading-4 text-muted-foreground">
+                Text drafts are saved in this tab. Reattach media after
+                reloading.
               </p>
               <Button
                 type="submit"
                 disabled={busy || !media || !message.trim()}
-                className="h-10 shrink-0 gap-2 rounded-xl bg-[#284f3a] px-5 text-xs text-white shadow-none hover:bg-[#1d3d2b]"
+                className="h-10 shrink-0 gap-2 rounded-xl bg-primary px-5 text-sm text-primary-foreground shadow-none hover:bg-primary/90"
               >
                 {publishing ? (
                   <Loader2
-                    className="size-3.5 animate-spin"
+                    className="size-4 animate-spin"
                     aria-hidden="true"
                   />
                 ) : (
-                  <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                  <ArrowUpRight className="size-4" aria-hidden="true" />
                 )}
                 {publishing ? "Publishing..." : "Share your post"}
               </Button>

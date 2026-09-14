@@ -3,15 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
-import {
-  ArrowRight,
-  Check,
-  Eye,
-  EyeOff,
-  Loader2,
-  LockKeyhole,
-  UserRound,
-} from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -79,7 +71,7 @@ function AuthFormContent({ mode }: { mode: "login" | "register" }) {
           router.replace(`/login?next=${encodeURIComponent(destination)}`);
           return;
         }
-        toast.success("Welcome to NetworkAI. Make yourself at home.");
+        toast.success("Your account has been created.");
       } else {
         await signIn(username.trim(), password);
         toast.success("Welcome back.");
@@ -101,17 +93,14 @@ function AuthFormContent({ mode }: { mode: "login" | "register" }) {
 
   return (
     <div className="w-full max-w-[400px]">
-      <div className="mb-9">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#66705f]">
-          Your creative corner
-        </p>
-        <h1 className="display-serif text-4xl font-semibold tracking-[-0.045em] text-[#203d31]">
-          {isRegistration ? "A little more you." : "Welcome back."}
+      <div className="mb-8">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+          {isRegistration ? "Create your account" : "Welcome back"}
         </h1>
-        <p className="mt-3 text-sm leading-6 text-[#66705f]">
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
           {isRegistration
-            ? "Join a community of curious minds. Your next idea starts here."
-            : "Good ideas, familiar faces, and a little inspiration are waiting for you."}
+            ? "Sign up to share posts and create with AI."
+            : "Sign in to your NetworkAI account."}
         </p>
       </div>
       <form
@@ -126,7 +115,7 @@ function AuthFormContent({ mode }: { mode: "login" | "register" }) {
             ref={errorRef}
             role="alert"
             tabIndex={-1}
-            className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm leading-5 text-red-800 outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+            className="rounded-lg border border-red-200 bg-red-50 p-3.5 text-sm leading-5 text-red-800 outline-none focus-visible:ring-2 focus-visible:ring-red-400"
           >
             {error}
           </div>
@@ -134,15 +123,11 @@ function AuthFormContent({ mode }: { mode: "login" | "register" }) {
         <div className="space-y-2">
           <Label
             htmlFor="auth-username"
-            className="text-xs font-semibold text-[#354b3e]"
+            className="text-sm font-medium text-foreground"
           >
             Username
           </Label>
           <div className="relative">
-            <UserRound
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3.5 top-3.5 size-4 text-[#66705f]"
-            />
             <Input
               id="auth-username"
               name="username"
@@ -155,22 +140,18 @@ function AuthFormContent({ mode }: { mode: "login" | "register" }) {
               disabled={pending}
               onChange={(event) => setUsername(event.target.value)}
               placeholder="Your username"
-              className="h-11 rounded-xl border-[#e2e6dc] bg-white pl-10 text-sm"
+              className="h-11 rounded-lg border-input bg-background text-sm"
             />
           </div>
         </div>
         <div className="space-y-2">
           <Label
             htmlFor="auth-password"
-            className="text-xs font-semibold text-[#354b3e]"
+            className="text-sm font-medium text-foreground"
           >
             Password
           </Label>
           <div className="relative">
-            <LockKeyhole
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3.5 top-3.5 size-4 text-[#66705f]"
-            />
             <Input
               id="auth-password"
               name="password"
@@ -183,14 +164,14 @@ function AuthFormContent({ mode }: { mode: "login" | "register" }) {
               disabled={pending}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Your password"
-              className="h-11 rounded-xl border-[#e2e6dc] bg-white pl-10 pr-11 text-sm"
+              className="h-11 rounded-lg border-input bg-background pr-11 text-sm"
             />
             <button
               type="button"
               onClick={() => setShowPassword((shown) => !shown)}
               aria-label={showPassword ? "Hide password" : "Show password"}
               aria-pressed={showPassword}
-              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-[#66705f] transition hover:text-[#234f3c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#234f3c]"
+              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-muted-foreground transition hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               {showPassword ? (
                 <EyeOff className="size-4" />
@@ -204,15 +185,11 @@ function AuthFormContent({ mode }: { mode: "login" | "register" }) {
           <div className="space-y-2">
             <Label
               htmlFor="auth-confirm-password"
-              className="text-xs font-semibold text-[#354b3e]"
+              className="text-sm font-medium text-foreground"
             >
               Confirm password
             </Label>
             <div className="relative">
-              <LockKeyhole
-                aria-hidden="true"
-                className="pointer-events-none absolute left-3.5 top-3.5 size-4 text-[#66705f]"
-              />
               <Input
                 id="auth-confirm-password"
                 name="confirmPassword"
@@ -222,8 +199,8 @@ function AuthFormContent({ mode }: { mode: "login" | "register" }) {
                 value={confirmation}
                 disabled={pending}
                 onChange={(event) => setConfirmation(event.target.value)}
-                placeholder="One more time"
-                className="h-11 rounded-xl border-[#e2e6dc] bg-white pl-10 text-sm"
+                placeholder="Confirm your password"
+                className="h-11 rounded-lg border-input bg-background text-sm"
               />
             </div>
           </div>
@@ -231,7 +208,7 @@ function AuthFormContent({ mode }: { mode: "login" | "register" }) {
         <Button
           type="submit"
           disabled={pending || !ready}
-          className="mt-2 h-11 w-full gap-2 rounded-xl bg-[#264e3d] text-sm font-medium text-white shadow-none hover:bg-[#1c3c2d]"
+          className="mt-2 h-11 w-full gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground shadow-none hover:bg-primary/90"
         >
           {pending ? (
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -243,22 +220,15 @@ function AuthFormContent({ mode }: { mode: "login" | "register" }) {
             : isRegistration
               ? "Create account"
               : "Sign in"}
-          {!pending && <ArrowRight className="size-4" aria-hidden="true" />}
         </Button>
-        {isRegistration && (
-          <p className="flex items-center justify-center gap-1.5 text-xs text-[#66705f]">
-            <Check className="size-3.5" aria-hidden="true" /> A place to create,
-            share, and find your people.
-          </p>
-        )}
       </form>
-      <p className="mt-7 text-center text-sm text-[#66705f]">
-        {isRegistration ? "Already part of the community?" : "New around here?"}{" "}
+      <p className="mt-7 text-center text-sm text-muted-foreground">
+        {isRegistration ? "Already have an account?" : "Don’t have an account?"}{" "}
         <Link
           href={alternativeUrl}
-          className="font-semibold text-[#264e3d] underline-offset-4 hover:underline focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#264e3d]"
+          className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
         >
-          {isRegistration ? "Sign in" : "Join us"}
+          {isRegistration ? "Sign in" : "Create account"}
         </Link>
       </p>
     </div>
@@ -269,8 +239,8 @@ export function AuthForm(props: { mode: "login" | "register" }) {
   return (
     <Suspense
       fallback={
-        <div role="status" className="p-8 text-sm text-[#66705f]">
-          Getting your space ready...
+        <div role="status" className="p-8 text-sm text-muted-foreground">
+          Loading...
         </div>
       }
     >

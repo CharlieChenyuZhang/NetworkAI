@@ -9,11 +9,11 @@ export function Brand({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2.5 text-[23px] font-bold tracking-[-1px]",
+        "inline-flex items-center gap-2.5 text-[20px] font-bold tracking-[-0.6px]",
         className,
       )}
     >
-      <span className="grid size-9 place-items-center rounded-xl bg-primary text-white">
+      <span className="grid size-8 place-items-center rounded-lg bg-primary text-white">
         <svg
           width="23"
           height="23"
