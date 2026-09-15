@@ -8,11 +8,15 @@ import { createMockApi } from "./api.mjs";
 const clientFetch = globalThis.fetch.bind(globalThis);
 const credentials = { username: "charlie", password: "test-password" };
 
-async function startMock(t) {
+async function startMock(t, { liveAi = false, downstream } = {}) {
   let handler;
   const server = createServer(async (request, response) => {
     try {
       if (!(await handler(request, response))) {
+        if (downstream) {
+          await downstream(request, response);
+          return;
+        }
         response.writeHead(404, { "x-test-unhandled": "true" });
         response.end("Unhandled test route");
       }
@@ -32,7 +36,7 @@ async function startMock(t) {
     });
   });
   const origin = `http://127.0.0.1:${server.address().port}`;
-  handler = await createMockApi({ origin });
+  handler = await createMockApi({ origin, liveAi });
   return {
     origin,
     request(path, options = {}, token) {
@@ -238,6 +242,113 @@ test("AI generation and reference-image editing return local rasters without ups
     assert.equal(response.status, 200);
     assertLocalRaster(await response.json());
   }
+  assert.equal(upstreamFetch.mock.callCount(), 0);
+});
+
+test("live AI hands untouched generation and reference-image multipart requests to the Next route", async (t) => {
+  const forwarded = [];
+  const api = await startMock(t, {
+    liveAi: true,
+    async downstream(request, response) {
+      assert.equal(request.readableDidRead, false, "The mock must not read from the live request stream");
+      assert.equal(request.readableFlowing, null, "The mock must not start draining the live request stream");
+      assert.equal(request.listenerCount("data"), 0);
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      forwarded.push({
+        path: request.url,
+        method: request.method,
+        headers: { ...request.headers },
+        bytes: Buffer.concat(chunks),
+      });
+      response.writeHead(200, { "x-test-next-route": "true" });
+      response.end("Next route sentinel");
+    },
+  });
+  const token = await signIn(api);
+  const posts = await search(api, token);
+  const { file } = await readRaster(posts.find((post) => post.type === "image"));
+  const upstreamFetch = t.mock.method(globalThis, "fetch", () => {
+    throw new Error("Live forwarding tests must not contact an upstream service");
+  });
+
+  for (const reference of [undefined, file]) {
+    const form = new FormData();
+    form.append("prompt", "A quiet lake with warm morning light");
+    form.append("size", "1536x1024");
+    if (reference) form.append("image", reference);
+    const encoded = new Request(`${api.origin}/api/ai/image`, { method: "POST", body: form });
+    const contentType = encoded.headers.get("Content-Type");
+    const bytes = Buffer.from(await encoded.arrayBuffer());
+    const response = await api.request("/api/ai/image", {
+      method: "POST",
+      headers: { "Content-Type": contentType, Origin: api.origin },
+      body: bytes,
+    }, token);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("x-test-next-route"), "true");
+    assert.equal(await response.text(), "Next route sentinel");
+    const received = forwarded.at(-1);
+    assert.equal(received.path, "/api/ai/image");
+    assert.equal(received.method, "POST");
+    assert.equal(received.headers.authorization, `Bearer ${token}`);
+    assert.equal(received.headers.origin, api.origin);
+    assert.equal(received.headers["content-type"], contentType);
+    assert.deepEqual(received.bytes, bytes);
+  }
+  assert.equal(forwarded.length, 2);
+  assert.equal(upstreamFetch.mock.callCount(), 0);
+});
+
+test("live AI blocks invalid sessions, origins, methods, and neighboring API paths locally", async (t) => {
+  let forwarded = 0;
+  const api = await startMock(t, {
+    liveAi: true,
+    downstream(request, response) {
+      forwarded += 1;
+      response.writeHead(500, { "x-test-next-route": "true" });
+      response.end("This request must not reach Next");
+    },
+  });
+  const token = await signIn(api);
+  const otherApi = await startMock(t);
+  const otherToken = await signIn(otherApi);
+  const [header, payload, signature] = token.split(".");
+  const claims = JSON.parse(Buffer.from(payload, "base64url").toString());
+  const forgedPayload = Buffer.from(JSON.stringify({ ...claims, username: "maya" })).toString("base64url");
+  const upstreamFetch = t.mock.method(globalThis, "fetch", () => {
+    throw new Error("Rejected live AI requests must not contact an upstream service");
+  });
+
+  for (const invalidToken of [undefined, "invalid-token", otherToken, `${header}.${forgedPayload}.${signature}`]) {
+    const response = await api.request("/api/ai/image", {
+      method: "POST", headers: { Origin: api.origin }, body: "unread form",
+    }, invalidToken);
+    assert.equal(response.status, 401);
+    assert.equal(response.headers.get("x-test-next-route"), null);
+  }
+  for (const headers of [
+    {},
+    { Origin: "https://example.test" },
+    { Origin: "null" },
+    { Origin: api.origin, "Sec-Fetch-Site": "cross-site" },
+  ]) {
+    const response = await api.request("/api/ai/image", { method: "POST", headers, body: "unread form" }, token);
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get("x-test-next-route"), null);
+  }
+  for (const method of ["GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
+    const response = await api.request("/api/ai/image", { method, headers: { Origin: api.origin } }, token);
+    assert.equal(response.status, 405);
+    assert.equal(response.headers.get("Allow"), "POST");
+    assert.equal(response.headers.get("x-test-next-route"), null);
+  }
+  for (const path of ["/api/unknown-local-endpoint", "/api/ai/image/", "/api/ai/image/edit", "/api/ai/%69mage"]) {
+    const response = await api.request(path, { method: "POST", headers: { Origin: api.origin } }, token);
+    assert.equal(response.status, 404);
+    assert.equal(response.headers.get("x-test-next-route"), null);
+  }
+  assert.equal(forwarded, 0);
   assert.equal(upstreamFetch.mock.callCount(), 0);
 });
 

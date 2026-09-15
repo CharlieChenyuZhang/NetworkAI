@@ -186,7 +186,7 @@ function serveMedia(req, res, media) {
 }
 
 /** A fresh handler owns fresh users, posts, media, and a random signing key. */
-export async function createMockApi({ origin }) {
+export async function createMockApi({ origin, liveAi = false }) {
   const siteOrigin = new URL(origin).origin;
   const [seedUsers, seedPosts] = await Promise.all([
     readFile(new URL("./users.json", import.meta.url), "utf8").then(JSON.parse),
@@ -310,7 +310,17 @@ export async function createMockApi({ origin }) {
         send(res, 200, { message: "Post deleted." });
       } else if (path === "/api/ai/image") {
         requireMethod(req, res, "POST");
+        if (liveAi && req.headers.origin !== siteOrigin) {
+          throw new RequestError(403, "Use the local NetworkAI page to make this request.");
+        }
         authenticate(req);
+        if (liveAi) {
+          if (url.pathname !== "/api/ai/image") {
+            throw new RequestError(404, "This endpoint is not available in the local API.");
+          }
+          // Next owns validation and OpenAI access. Leave the multipart stream untouched.
+          return false;
+        }
         const form = await readForm(req, IMAGE_LIMIT);
         const prompt = singleField(form, "prompt");
         const size = singleField(form, "size", true) ?? "1024x1024";

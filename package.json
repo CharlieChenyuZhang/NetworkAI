@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:mock": "node \"testing data/dev.mjs\"",
+    "dev:mock:ai": "node \"testing data/dev.mjs\" --live-ai",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
