@@ -1,0 +1,83 @@
+[
+  {
+    "id": "local-lake-morning",
+    "user": "charlie",
+    "message": "An early start was worth it for these still reflections. Alpine air, a flask of coffee, and nowhere else to be. #Nature #Photography",
+    "url": "/testing-data/media/alpine-lake.jpg",
+    "type": "image",
+    "category": "Nature",
+    "createdAt": "2026-09-14T08:15:00.000Z"
+  },
+  {
+    "id": "local-sunday-light",
+    "user": "maya",
+    "message": "The afternoon light made this quiet corner feel like a gallery. Warm wood and generous windows do most of the work. #Architecture",
+    "url": "/testing-data/media/interior.jpg",
+    "type": "image",
+    "category": "Architecture",
+    "createdAt": "2026-09-13T20:40:00.000Z"
+  },
+  {
+    "id": "local-coastal-walk",
+    "user": "charlie",
+    "message": "A few frames from a slow walk along the coast. I kept the horizon low to leave room for all that sky. #Photography",
+    "url": "/testing-data/media/ocean.jpg",
+    "type": "image",
+    "category": "Photography",
+    "createdAt": "2026-09-13T17:30:00.000Z"
+  },
+  {
+    "id": "local-forest-trail",
+    "user": "jordan",
+    "message": "The trail was still damp from last night's rain. Everything smelled like cedar, and the only traffic was a squirrel. #Nature",
+    "url": "/testing-data/media/forest.jpg",
+    "type": "image",
+    "category": "Nature",
+    "createdAt": "2026-09-12T16:05:00.000Z"
+  },
+  {
+    "id": "local-landscape-study",
+    "user": "maya",
+    "message": "Saving this palette for a watercolor study: soft blue, weathered green, and a little warm ochre. Sometimes the landscape chooses the colors. #Art",
+    "url": "/testing-data/media/landscape.jpg",
+    "type": "image",
+    "category": "Art",
+    "createdAt": "2026-09-12T09:20:00.000Z"
+  },
+  {
+    "id": "local-window-lines",
+    "user": "charlie",
+    "message": "Collecting small details for the studio redesign. Clean lines, natural light, and a comfortable place to sketch. #Architecture #Art",
+    "url": "/testing-data/media/interior.jpg",
+    "type": "image",
+    "category": "Architecture",
+    "createdAt": "2026-09-11T18:45:00.000Z"
+  },
+  {
+    "id": "local-mountain-frame",
+    "user": "jordan",
+    "message": "Waited for a break in the clouds and got one good frame before the light disappeared. A reminder to keep the camera close. #Photography #Nature",
+    "url": "/testing-data/media/mountain.jpg",
+    "type": "image",
+    "category": "Photography",
+    "createdAt": "2026-09-11T07:50:00.000Z"
+  },
+  {
+    "id": "local-blue-sketchbook",
+    "user": "charlie",
+    "message": "Today's sketchbook exercise: reduce the shoreline to five shapes and three shades of blue. Keeping it simple is the hardest part. #Art",
+    "url": "/testing-data/media/ocean.jpg",
+    "type": "image",
+    "category": "Art",
+    "createdAt": "2026-09-10T19:10:00.000Z"
+  },
+  {
+    "id": "local-green-weekend",
+    "user": "maya",
+    "message": "A little green for the end of the week. Took the long way home through the woods and left my headphones in my bag. #Nature",
+    "url": "/testing-data/media/forest.jpg",
+    "type": "image",
+    "category": "Nature",
+    "createdAt": "2026-09-10T15:25:00.000Z"
+  }
+]
