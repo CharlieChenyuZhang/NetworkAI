@@ -13,13 +13,14 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) {
 
 const origin = `http://localhost:${port}`;
 const projectDir = fileURLToPath(new URL("../", import.meta.url));
+const liveAi = process.argv.slice(2).includes("--live-ai");
 
 // Overrides apply only to this process. Existing .env files stay untouched.
 process.env.NODE_ENV = "development";
 process.env.NEXT_PUBLIC_API_BASE_URL = origin;
-process.env.OPENAI_API_KEY = "";
+if (!liveAi) process.env.OPENAI_API_KEY = "";
 
-const handleMock = await createMockApi({ origin });
+const handleMock = await createMockApi({ origin, liveAi });
 let handlePage;
 let app;
 const server = createServer(async (request, response) => {
@@ -66,14 +67,23 @@ try {
   const { default: next } = await import("next");
   app = next({ dev: true, dir: projectDir, hostname: "localhost", port, httpServer: server });
   await app.prepare();
+  // Next loads .env.local during prepare. Check only after that has completed.
+  if (liveAi && !process.env.OPENAI_API_KEY?.trim()) {
+    throw Object.assign(new Error("Live AI requires an OpenAI API key."), { code: "MISSING_OPENAI_API_KEY" });
+  }
   handlePage = app.getRequestHandler();
   console.log(`\nNetworkAI local testing: ${origin}`);
   console.log("Sign in: charlie / test-password");
-  console.log("All API requests and AI previews use local test data. No OpenAI calls.");
+  console.log(liveAi
+    ? "AI generation and edits use the real Next.js OpenAI route. Other API requests use local test data."
+    : "All API requests and AI previews use local test data. No OpenAI calls.");
   console.log("Posts, registrations and uploads reset when this process restarts.\n");
 } catch (error) {
-  console.error(error.code === "EADDRINUSE"
-    ? `Port ${port} is already in use. Stop the existing server or set MOCK_PORT=3002.`
-    : "Could not start local testing. Check your Node.js version and installed dependencies.");
+  const message = error.code === "MISSING_OPENAI_API_KEY"
+    ? "Live AI requires OPENAI_API_KEY. Set it in .env.local or your shell environment, then restart with --live-ai."
+    : error.code === "EADDRINUSE"
+      ? `Port ${port} is already in use. Stop the existing server or set MOCK_PORT=3002.`
+      : "Could not start local testing. Check your Node.js version and installed dependencies.";
+  console.error(message);
   await stop(1);
 }

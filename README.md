@@ -20,6 +20,8 @@ Open [localhost:3000](http://localhost:3000). The signed-out home includes clear
 
 For local testing without the live backend, run `npm run dev:mock` and sign in with `charlie` / `test-password`. The removable [`testing data`](testing%20data/README.md) folder contains all mock accounts, posts, media, API handlers, and tests. This mode simulates registration, search, uploads, deletion, and AI image previews without calling external services. Restart it to reset server data. Stop it and use `npm run dev` to return to your configured real API.
 
+To test **real AI generation and image editing with the local mock accounts**, set `OPENAI_API_KEY` in the ignored `.env.local` file, then run `npm run dev:mock:ai`. This uses the same server-only `gpt-image-2` route as normal development while keeping account, search, and post data local. Image requests use your OpenAI account and incur API charges. If the port is occupied, use `MOCK_PORT=3002 npm run dev:mock:ai` and open [localhost:3002](http://localhost:3002). Restarting invalidates mock sessions, so sign in again.
+
 Configure these variables in `.env.local` or your frontend hosting environment:
 
 | Variable | Purpose |
@@ -88,7 +90,9 @@ npm run test:e2e
 
 Unit tests cover the actual JSON/multipart API contracts, JWT lifecycle, and AI authentication, validation, provider requests, and errors. Browser tests intercept both the Go and AI services to exercise desktop/mobile product workflows without creating real accounts, publishing posts, deleting data, or incurring image-generation charges.
 
-At migration time, the configured App Engine URL returned a Google 404 on a read-only request. Real backend and paid image-generation integration have therefore **not** been verified. Restore the service or set a working `NEXT_PUBLIC_API_BASE_URL`, configure `OPENAI_API_KEY`, and complete live smoke testing before deployment.
+Real `gpt-image-2` generation and reference-image editing have been verified through the browser in `dev:mock:ai` mode, including publication to the local mock feed and retrieval of the resulting 1024 × 1024 PNG. These checks used the server-only credential and the existing Next.js image route.
+
+At migration time, the configured App Engine URL returned a Google 404 on a read-only request. The real Go backend and Elasticsearch deployment remain **unverified**. Restore the service or set a working `NEXT_PUBLIC_API_BASE_URL` and complete backend smoke testing before deployment.
 
 ## Deployment
 

@@ -8,11 +8,15 @@ import { createMockApi } from "./api.mjs";
 const clientFetch = globalThis.fetch.bind(globalThis);
 const credentials = { username: "charlie", password: "test-password" };
 
-async function startMock(t) {
+async function startMock(t, { liveAi = false, downstream } = {}) {
   let handler;
   const server = createServer(async (request, response) => {
     try {
       if (!(await handler(request, response))) {
+        if (downstream) {
+          await downstream(request, response);
+          return;
+        }
         response.writeHead(404, { "x-test-unhandled": "true" });
         response.end("Unhandled test route");
       }
@@ -32,7 +36,7 @@ async function startMock(t) {
     });
   });
   const origin = `http://127.0.0.1:${server.address().port}`;
-  handler = await createMockApi({ origin });
+  handler = await createMockApi({ origin, liveAi });
   return {
     origin,
     request(path, options = {}, token) {
@@ -221,6 +225,58 @@ test("multipart upload enforces the caption limit, preserves raster bytes, and c
   assert.deepEqual(await search(api, token, { keywords: caption }), []);
 });
 
+test("post uploads normalize mislabeled rasters while AI reference validation stays strict", async (t) => {
+  const api = await startMock(t);
+  const token = await signIn(api);
+  const initial = await search(api, token);
+  const { bytes: jpeg } = await readRaster(initial.find((post) => post.type === "image"));
+  // Complete 1-by-1 PNG and WebP images keep these regressions self-contained.
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWMwjHH+DwADYgHQq+WVKgAAAABJRU5ErkJggg==", "base64");
+  const webp = Buffer.from("UklGRjAAAABXRUJQVlA4ICQAAABQAQCdASoBAAEAAUAmJQBOgCgAAP7y62Iw0a/oV6y++mLgAAA=", "base64");
+  const upstreamFetch = t.mock.method(globalThis, "fetch", () => {
+    throw new Error("Local publishing must not contact an upstream service");
+  });
+
+  for (const [bytes, declaredType, actualType, extension] of [
+    [jpeg, "image/png", "image/jpeg", "jpg"],
+    [png, "image/jpeg", "image/png", "png"],
+    [webp, "image/png", "image/webp", "webp"],
+  ]) {
+    const file = new File([bytes], declaredType === "image/png" ? "cat.png" : "cat.jpg", { type: declaredType });
+    const caption = `Mislabeled raster regression ${extension}`;
+    const form = new FormData();
+    form.append("message", caption);
+    form.append("media_file", file);
+    const uploaded = await api.request("/upload", { method: "POST", body: form }, token);
+    assert.equal(uploaded.status, 201, await uploaded.text());
+
+    const posts = await search(api, token, { keywords: caption, user: credentials.username });
+    assert.equal(posts.length, 1);
+    const post = posts[0];
+    assert.equal(post.user, credentials.username);
+    assert.equal(post.message, caption);
+    assert.equal(post.type, "image");
+    assert.ok(post.url.startsWith("/testing-data/media/upload-"));
+    assert.ok(post.url.endsWith(`.${extension}`));
+    const media = await api.request(post.url);
+    assert.equal(media.status, 200);
+    assert.equal(media.headers.get("content-type"), actualType);
+    assert.equal(media.headers.get("x-content-type-options"), "nosniff");
+    assert.deepEqual(Buffer.from(await media.arrayBuffer()), bytes);
+
+    const ai = new FormData();
+    ai.append("prompt", "An image with a mismatched declared format");
+    ai.append("image", file);
+    assert.equal((await api.request("/api/ai/image", { method: "POST", body: ai }, token)).status, 400);
+
+    const deleted = await api.request(`/post/${encodeURIComponent(post.id)}`, { method: "DELETE" }, token);
+    assert.equal(deleted.status, 200);
+    assert.deepEqual(await search(api, token), initial);
+    assert.equal((await api.request(post.url)).status, 404);
+  }
+  assert.equal(upstreamFetch.mock.callCount(), 0);
+});
+
 test("AI generation and reference-image editing return local rasters without upstream fetches", async (t) => {
   const api = await startMock(t);
   const token = await signIn(api);
@@ -238,6 +294,113 @@ test("AI generation and reference-image editing return local rasters without ups
     assert.equal(response.status, 200);
     assertLocalRaster(await response.json());
   }
+  assert.equal(upstreamFetch.mock.callCount(), 0);
+});
+
+test("live AI hands untouched generation and reference-image multipart requests to the Next route", async (t) => {
+  const forwarded = [];
+  const api = await startMock(t, {
+    liveAi: true,
+    async downstream(request, response) {
+      assert.equal(request.readableDidRead, false, "The mock must not read from the live request stream");
+      assert.equal(request.readableFlowing, null, "The mock must not start draining the live request stream");
+      assert.equal(request.listenerCount("data"), 0);
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      forwarded.push({
+        path: request.url,
+        method: request.method,
+        headers: { ...request.headers },
+        bytes: Buffer.concat(chunks),
+      });
+      response.writeHead(200, { "x-test-next-route": "true" });
+      response.end("Next route sentinel");
+    },
+  });
+  const token = await signIn(api);
+  const posts = await search(api, token);
+  const { file } = await readRaster(posts.find((post) => post.type === "image"));
+  const upstreamFetch = t.mock.method(globalThis, "fetch", () => {
+    throw new Error("Live forwarding tests must not contact an upstream service");
+  });
+
+  for (const reference of [undefined, file]) {
+    const form = new FormData();
+    form.append("prompt", "A quiet lake with warm morning light");
+    form.append("size", "1536x1024");
+    if (reference) form.append("image", reference);
+    const encoded = new Request(`${api.origin}/api/ai/image`, { method: "POST", body: form });
+    const contentType = encoded.headers.get("Content-Type");
+    const bytes = Buffer.from(await encoded.arrayBuffer());
+    const response = await api.request("/api/ai/image", {
+      method: "POST",
+      headers: { "Content-Type": contentType, Origin: api.origin },
+      body: bytes,
+    }, token);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("x-test-next-route"), "true");
+    assert.equal(await response.text(), "Next route sentinel");
+    const received = forwarded.at(-1);
+    assert.equal(received.path, "/api/ai/image");
+    assert.equal(received.method, "POST");
+    assert.equal(received.headers.authorization, `Bearer ${token}`);
+    assert.equal(received.headers.origin, api.origin);
+    assert.equal(received.headers["content-type"], contentType);
+    assert.deepEqual(received.bytes, bytes);
+  }
+  assert.equal(forwarded.length, 2);
+  assert.equal(upstreamFetch.mock.callCount(), 0);
+});
+
+test("live AI blocks invalid sessions, origins, methods, and neighboring API paths locally", async (t) => {
+  let forwarded = 0;
+  const api = await startMock(t, {
+    liveAi: true,
+    downstream(request, response) {
+      forwarded += 1;
+      response.writeHead(500, { "x-test-next-route": "true" });
+      response.end("This request must not reach Next");
+    },
+  });
+  const token = await signIn(api);
+  const otherApi = await startMock(t);
+  const otherToken = await signIn(otherApi);
+  const [header, payload, signature] = token.split(".");
+  const claims = JSON.parse(Buffer.from(payload, "base64url").toString());
+  const forgedPayload = Buffer.from(JSON.stringify({ ...claims, username: "maya" })).toString("base64url");
+  const upstreamFetch = t.mock.method(globalThis, "fetch", () => {
+    throw new Error("Rejected live AI requests must not contact an upstream service");
+  });
+
+  for (const invalidToken of [undefined, "invalid-token", otherToken, `${header}.${forgedPayload}.${signature}`]) {
+    const response = await api.request("/api/ai/image", {
+      method: "POST", headers: { Origin: api.origin }, body: "unread form",
+    }, invalidToken);
+    assert.equal(response.status, 401);
+    assert.equal(response.headers.get("x-test-next-route"), null);
+  }
+  for (const headers of [
+    {},
+    { Origin: "https://example.test" },
+    { Origin: "null" },
+    { Origin: api.origin, "Sec-Fetch-Site": "cross-site" },
+  ]) {
+    const response = await api.request("/api/ai/image", { method: "POST", headers, body: "unread form" }, token);
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get("x-test-next-route"), null);
+  }
+  for (const method of ["GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
+    const response = await api.request("/api/ai/image", { method, headers: { Origin: api.origin } }, token);
+    assert.equal(response.status, 405);
+    assert.equal(response.headers.get("Allow"), "POST");
+    assert.equal(response.headers.get("x-test-next-route"), null);
+  }
+  for (const path of ["/api/unknown-local-endpoint", "/api/ai/image/", "/api/ai/image/edit", "/api/ai/%69mage"]) {
+    const response = await api.request(path, { method: "POST", headers: { Origin: api.origin } }, token);
+    assert.equal(response.status, 404);
+    assert.equal(response.headers.get("x-test-next-route"), null);
+  }
+  assert.equal(forwarded, 0);
   assert.equal(upstreamFetch.mock.callCount(), 0);
 });
 
@@ -295,15 +458,17 @@ test("malformed multipart, empty AI prompts, and SVG uploads fail locally", asyn
   const emptyAi = await api.request("/api/ai/image", { method: "POST", body: emptyPrompt }, token);
   assert.equal(emptyAi.status, 400);
 
-  const svg = new FormData();
-  svg.append("message", "An unsupported SVG upload");
-  svg.append("media_file", new File([
-    '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>',
-  ], "unsupported.svg", { type: "image/svg+xml" }));
-  const rejectedSvg = await api.request("/upload", { method: "POST", body: svg }, token);
-  assert.ok([400, 415].includes(rejectedSvg.status));
-  assert.equal(rejectedSvg.headers.get("x-test-unhandled"), null);
-  assert.deepEqual(await search(api, token), originalPosts);
+  for (const type of ["image/svg+xml", "image/png", "image/jpeg", "image/webp"]) {
+    const svg = new FormData();
+    svg.append("message", "An unsupported SVG upload");
+    svg.append("media_file", new File([
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>',
+    ], type === "image/svg+xml" ? "unsupported.svg" : "disguised.png", { type }));
+    const rejectedSvg = await api.request("/upload", { method: "POST", body: svg }, token);
+    assert.equal(rejectedSvg.status, type === "image/svg+xml" ? 415 : 400);
+    assert.equal(rejectedSvg.headers.get("x-test-unhandled"), null);
+    assert.deepEqual(await search(api, token), originalPosts);
+  }
 
   const wrongMethod = await api.request("/api/ai/image", {}, token);
   assert.equal(wrongMethod.status, 405);
