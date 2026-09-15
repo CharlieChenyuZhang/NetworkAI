@@ -18,6 +18,8 @@ npm run dev
 
 Open [localhost:3000](http://localhost:3000). The signed-out home includes clearly labeled, locally bundled inspiration photos, so the interface is usable without backend credentials. Signing in switches to real community data. Failed API calls display a retry state; example posts are never substituted for a failed live feed.
 
+For local testing without the live backend, run `npm run dev:mock` and sign in with `charlie` / `test-password`. The removable [`testing data`](testing%20data/README.md) folder contains all mock accounts, posts, media, API handlers, and tests. This mode simulates registration, search, uploads, deletion, and AI image previews without calling external services. Restart it to reset server data. Stop it and use `npm run dev` to return to your configured real API.
+
 Configure these variables in `.env.local` or your frontend hosting environment:
 
 | Variable | Purpose |

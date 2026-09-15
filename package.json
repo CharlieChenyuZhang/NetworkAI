@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:mock": "node \"testing data/dev.mjs\"",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
+    "test:mock": "node --test \"testing data/api.test.mjs\"",
     "test:e2e": "playwright test"
   },
   "dependencies": {
