@@ -225,6 +225,58 @@ test("multipart upload enforces the caption limit, preserves raster bytes, and c
   assert.deepEqual(await search(api, token, { keywords: caption }), []);
 });
 
+test("post uploads normalize mislabeled rasters while AI reference validation stays strict", async (t) => {
+  const api = await startMock(t);
+  const token = await signIn(api);
+  const initial = await search(api, token);
+  const { bytes: jpeg } = await readRaster(initial.find((post) => post.type === "image"));
+  // Complete 1-by-1 PNG and WebP images keep these regressions self-contained.
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWMwjHH+DwADYgHQq+WVKgAAAABJRU5ErkJggg==", "base64");
+  const webp = Buffer.from("UklGRjAAAABXRUJQVlA4ICQAAABQAQCdASoBAAEAAUAmJQBOgCgAAP7y62Iw0a/oV6y++mLgAAA=", "base64");
+  const upstreamFetch = t.mock.method(globalThis, "fetch", () => {
+    throw new Error("Local publishing must not contact an upstream service");
+  });
+
+  for (const [bytes, declaredType, actualType, extension] of [
+    [jpeg, "image/png", "image/jpeg", "jpg"],
+    [png, "image/jpeg", "image/png", "png"],
+    [webp, "image/png", "image/webp", "webp"],
+  ]) {
+    const file = new File([bytes], declaredType === "image/png" ? "cat.png" : "cat.jpg", { type: declaredType });
+    const caption = `Mislabeled raster regression ${extension}`;
+    const form = new FormData();
+    form.append("message", caption);
+    form.append("media_file", file);
+    const uploaded = await api.request("/upload", { method: "POST", body: form }, token);
+    assert.equal(uploaded.status, 201, await uploaded.text());
+
+    const posts = await search(api, token, { keywords: caption, user: credentials.username });
+    assert.equal(posts.length, 1);
+    const post = posts[0];
+    assert.equal(post.user, credentials.username);
+    assert.equal(post.message, caption);
+    assert.equal(post.type, "image");
+    assert.ok(post.url.startsWith("/testing-data/media/upload-"));
+    assert.ok(post.url.endsWith(`.${extension}`));
+    const media = await api.request(post.url);
+    assert.equal(media.status, 200);
+    assert.equal(media.headers.get("content-type"), actualType);
+    assert.equal(media.headers.get("x-content-type-options"), "nosniff");
+    assert.deepEqual(Buffer.from(await media.arrayBuffer()), bytes);
+
+    const ai = new FormData();
+    ai.append("prompt", "An image with a mismatched declared format");
+    ai.append("image", file);
+    assert.equal((await api.request("/api/ai/image", { method: "POST", body: ai }, token)).status, 400);
+
+    const deleted = await api.request(`/post/${encodeURIComponent(post.id)}`, { method: "DELETE" }, token);
+    assert.equal(deleted.status, 200);
+    assert.deepEqual(await search(api, token), initial);
+    assert.equal((await api.request(post.url)).status, 404);
+  }
+  assert.equal(upstreamFetch.mock.callCount(), 0);
+});
+
 test("AI generation and reference-image editing return local rasters without upstream fetches", async (t) => {
   const api = await startMock(t);
   const token = await signIn(api);
@@ -406,15 +458,17 @@ test("malformed multipart, empty AI prompts, and SVG uploads fail locally", asyn
   const emptyAi = await api.request("/api/ai/image", { method: "POST", body: emptyPrompt }, token);
   assert.equal(emptyAi.status, 400);
 
-  const svg = new FormData();
-  svg.append("message", "An unsupported SVG upload");
-  svg.append("media_file", new File([
-    '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>',
-  ], "unsupported.svg", { type: "image/svg+xml" }));
-  const rejectedSvg = await api.request("/upload", { method: "POST", body: svg }, token);
-  assert.ok([400, 415].includes(rejectedSvg.status));
-  assert.equal(rejectedSvg.headers.get("x-test-unhandled"), null);
-  assert.deepEqual(await search(api, token), originalPosts);
+  for (const type of ["image/svg+xml", "image/png", "image/jpeg", "image/webp"]) {
+    const svg = new FormData();
+    svg.append("message", "An unsupported SVG upload");
+    svg.append("media_file", new File([
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>',
+    ], type === "image/svg+xml" ? "unsupported.svg" : "disguised.png", { type }));
+    const rejectedSvg = await api.request("/upload", { method: "POST", body: svg }, token);
+    assert.equal(rejectedSvg.status, type === "image/svg+xml" ? 415 : 400);
+    assert.equal(rejectedSvg.headers.get("x-test-unhandled"), null);
+    assert.deepEqual(await search(api, token), originalPosts);
+  }
 
   const wrongMethod = await api.request("/api/ai/image", {}, token);
   assert.equal(wrongMethod.status, 405);

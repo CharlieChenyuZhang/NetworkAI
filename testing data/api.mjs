@@ -122,7 +122,7 @@ async function readMedia(file, imageOnly = false) {
   if (!file || typeof file === "string" || typeof file.arrayBuffer !== "function") {
     throw new RequestError(400, "Select a media file.");
   }
-  const type = file.type.toLowerCase();
+  let type = file.type.toLowerCase();
   if (!MEDIA_EXTENSIONS.has(type) || (imageOnly && !IMAGE_TYPES.has(type))) {
     throw new RequestError(415, "Choose a supported raster image or video. SVG files are not supported.");
   }
@@ -140,6 +140,12 @@ async function readMedia(file, imageOnly = false) {
     "video/quicktime": ["ftyp", "moov", "mdat", "wide"].includes(bytes.toString("ascii", 4, 8)),
     "video/webm": bytes.subarray(0, 4).equals(Buffer.from([26, 69, 223, 163])),
   };
+  if (!imageOnly && type.startsWith("image/")) {
+    // Browsers may label a renamed raster by its extension. Store and serve
+    // the actual raster format for local posts; AI references stay strict.
+    type = Object.keys(signatures).find((candidate) =>
+      candidate.startsWith("image/") && signatures[candidate]) ?? type;
+  }
   if (!signatures[type]) {
     throw new RequestError(400, "The file contents do not match its media type.");
   }

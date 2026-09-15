@@ -46,6 +46,12 @@ Use `npm run dev:mock` for simulated images without external calls or charges.
 
 The mock preserves the existing JSON, multipart, and bearer-token API shapes. It does not implement an unsupported published-post update endpoint or run real Go, Elasticsearch, or cloud services.
 
+## Share a post locally
+
+Open Create, enter your story, attach an image or video, and choose **Share your post**. In both mock modes, `/upload` saves the caption and media in local server memory and the new post appears in **Discover** and **My posts**. Publishing from Saved posts does not automatically bookmark the new post. No post is sent to the real Go service.
+
+For local post uploads, the mock identifies PNG, JPEG, WebP, and GIF images from their contents. A WebP photo named `cat.png` is saved and served as WebP. Unsupported files and SVG content are still rejected. The real API contract and AI reference-image validation are unchanged.
+
 ## Data and reset
 
 Edit `users.json` and `posts.json` to customize the initial state. Bundled media is in `media/`. All registrations, uploaded media, and post changes live in server memory. Restart `npm run dev:mock` to restore the seed data. Restarting also invalidates mock sessions, so sign in again.
