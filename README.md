@@ -90,7 +90,9 @@ npm run test:e2e
 
 Unit tests cover the actual JSON/multipart API contracts, JWT lifecycle, and AI authentication, validation, provider requests, and errors. Browser tests intercept both the Go and AI services to exercise desktop/mobile product workflows without creating real accounts, publishing posts, deleting data, or incurring image-generation charges.
 
-At migration time, the configured App Engine URL returned a Google 404 on a read-only request. Real backend and paid image-generation integration have therefore **not** been verified. Restore the service or set a working `NEXT_PUBLIC_API_BASE_URL`, configure `OPENAI_API_KEY`, and complete live smoke testing before deployment.
+Real `gpt-image-2` generation and reference-image editing have been verified through the browser in `dev:mock:ai` mode, including publication to the local mock feed and retrieval of the resulting 1024 × 1024 PNG. These checks used the server-only credential and the existing Next.js image route.
+
+At migration time, the configured App Engine URL returned a Google 404 on a read-only request. The real Go backend and Elasticsearch deployment remain **unverified**. Restore the service or set a working `NEXT_PUBLIC_API_BASE_URL` and complete backend smoke testing before deployment.
 
 ## Deployment
 
